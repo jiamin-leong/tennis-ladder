@@ -8,14 +8,18 @@ import Settings from '../components/Settings';
 import FAQ from '../components/FAQ';
 import MyStats from '../components/MyStats';
 import LoginScreen from '../components/LoginScreen';
+import AdminPinScreen from '../components/AdminPinScreen';
 import RegisterScreen from '../components/RegisterScreen';
 import PendingScreen from '../components/PendingScreen';
+import AdminHome from '../components/AdminHome';
+import LadderSelect from '../components/LadderSelect';
 
 const ADMIN_TABS = ['Leaderboard', 'Matches', 'Players', 'Settings'];
 const PARTICIPANT_TABS = ['Leaderboard', 'My Stats', 'Submit Score', 'FAQ'];
 const SESSION_KEY = 'tennis_ladder_session';
 
-// 'loading' | 'login' | 'register' | 'pending' | 'rejected' | 'participant' | 'admin'
+// Screens: 'loading' | 'login' | 'register' | 'pending' | 'rejected'
+//          | 'admin-home' | 'admin' | 'ladder-select' | 'participant'
 
 export default function Home() {
   const [screen, setScreen] = useState('loading');
@@ -25,14 +29,16 @@ export default function Home() {
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [ladders, setLadders] = useState([]);
+  const [currentLadder, setCurrentLadder] = useState(null);
   const [loadingData, setLoadingData] = useState(false);
-  const [ladderName, setLadderName] = useState('Tennis Ladder');
+  const [appName, setAppName] = useState('Tennis Ladder');
 
-  // Load ladder name even before login
+  // Load app name even before login
   useEffect(() => {
     fetch('/api/settings')
       .then(r => r.ok ? r.json() : null)
-      .then(s => { if (s?.name) setLadderName(s.name); })
+      .then(s => { if (s?.name) setAppName(s.name); })
       .catch(() => {});
   }, []);
 
@@ -52,6 +58,11 @@ export default function Home() {
   }, []);
 
   async function verifySession(phone, fallback) {
+    if (fallback?.is_admin) {
+      localStorage.removeItem(SESSION_KEY);
+      setScreen('login');
+      return;
+    }
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
@@ -59,14 +70,14 @@ export default function Home() {
         body: JSON.stringify({ phone }),
       });
       const data = await res.json();
-      if (res.ok && data.exists) {
+      if (res.ok && data.exists && !data.requiresAdminPin) {
         enterApp(data.player, phone);
       } else {
         localStorage.removeItem(SESSION_KEY);
         setScreen('login');
       }
     } catch {
-      if (fallback) enterApp(fallback, phone);
+      if (fallback && !fallback.is_admin) enterApp(fallback, phone);
       else setScreen('login');
     }
   }
@@ -76,11 +87,9 @@ export default function Home() {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     setCurrentPlayer({ ...player, phone });
     if (player.is_admin) {
-      setScreen('admin');
-      setTab('Leaderboard');
+      setScreen('admin-home');
     } else if (player.status === 'approved') {
-      setScreen('participant');
-      setTab('Leaderboard');
+      setScreen('ladder-select');
     } else if (player.status === 'rejected') {
       setScreen('rejected');
     } else {
@@ -94,10 +103,11 @@ export default function Home() {
     setPendingPhone('');
     setPlayers([]);
     setMatches([]);
+    setCurrentLadder(null);
+    setLadders([]);
     setScreen('login');
   }
 
-  // Phone check on login page
   async function handlePhoneContinue(phone) {
     const res = await fetch('/api/auth', {
       method: 'POST',
@@ -106,7 +116,10 @@ export default function Home() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Something went wrong');
-    if (data.exists) {
+    if (data.exists && data.requiresAdminPin) {
+      setPendingPhone(phone);
+      setScreen('admin-pin');
+    } else if (data.exists) {
       enterApp(data.player, phone);
     } else {
       setPendingPhone(phone);
@@ -129,38 +142,66 @@ export default function Home() {
     enterApp(player, pendingPhone);
   }
 
-  const fetchAll = useCallback(async (isAdmin = false) => {
+  // Fetch ladders list (for admin-home or ladder-select)
+  const fetchLadders = useCallback(async (forPlayerId) => {
+    const url = forPlayerId ? `/api/ladders?playerId=${forPlayerId}` : '/api/ladders';
+    const res = await fetch(url);
+    if (res.ok) setLadders(await res.json());
+  }, []);
+
+  // Fetch data within a specific ladder
+  const fetchLadderData = useCallback(async (ladder, isAdmin) => {
+    if (!ladder) return;
     setLoadingData(true);
     try {
-      const [pRes, mRes, sRes] = await Promise.all([
-        fetch(isAdmin ? '/api/players?status=all' : '/api/players'),
-        fetch('/api/matches'),
-        fetch('/api/settings'),
+      const [pRes, mRes] = await Promise.all([
+        fetch(`/api/players?ladderId=${ladder.id}${isAdmin ? '&status=all' : ''}`),
+        fetch(`/api/matches?ladderId=${ladder.id}`),
       ]);
       if (pRes.ok) setPlayers(await pRes.json());
       if (mRes.ok) setMatches(await mRes.json());
-      if (sRes.ok) {
-        const s = await sRes.json();
-        setSettings(s);
-        if (s?.name) setLadderName(s.name);
-      }
-    } catch (err) {
-      console.error('Failed to load data:', err);
+      setSettings(ladder);
     } finally {
       setLoadingData(false);
     }
   }, []);
 
+  // On screen change, load the right data
   useEffect(() => {
-    if (screen === 'admin') fetchAll(true);
-    if (screen === 'participant') fetchAll(false);
-  }, [screen, fetchAll]);
+    if (screen === 'admin-home') {
+      fetchLadders();
+    } else if (screen === 'ladder-select' && currentPlayer) {
+      fetchLadders(currentPlayer.id);
+    } else if (screen === 'admin' && currentLadder) {
+      fetchLadderData(currentLadder, true);
+    } else if (screen === 'participant' && currentLadder) {
+      fetchLadderData(currentLadder, false);
+    }
+  }, [screen, currentLadder, currentPlayer, fetchLadders, fetchLadderData]);
 
-  const isAdmin = screen === 'admin';
-  const tabs = isAdmin ? ADMIN_TABS : PARTICIPANT_TABS;
-  const approvedPlayers = players.filter(p => p.status === 'approved');
+  function enterLadder(ladder) {
+    setCurrentLadder(ladder);
+    setTab('Leaderboard');
+    if (currentPlayer?.is_admin) {
+      setScreen('admin');
+    } else {
+      setScreen('participant');
+    }
+  }
 
-  // ── Screens ──────────────────────────────────────────────
+  function exitLadder() {
+    setCurrentLadder(null);
+    setPlayers([]);
+    setMatches([]);
+    setSettings(null);
+    if (currentPlayer?.is_admin) {
+      setScreen('admin-home');
+    } else {
+      setScreen('ladder-select');
+    }
+  }
+
+  // ── Auth screens ──────────────────────────────────────────
 
   if (screen === 'loading') {
     return (
@@ -171,7 +212,17 @@ export default function Home() {
   }
 
   if (screen === 'login') {
-    return <LoginScreen ladderName={ladderName} onContinue={handlePhoneContinue} onAdminLogin={handleAdminLogin} />;
+    return <LoginScreen ladderName={appName} onContinue={handlePhoneContinue} onAdminLogin={handleAdminLogin} />;
+  }
+
+  if (screen === 'admin-pin') {
+    return (
+      <AdminPinScreen
+        phone={pendingPhone}
+        onSuccess={(player) => enterApp(player, pendingPhone)}
+        onBack={() => setScreen('login')}
+      />
+    );
   }
 
   if (screen === 'register') {
@@ -205,9 +256,76 @@ export default function Home() {
     );
   }
 
-  // ── Main app (participant or admin) ───────────────────────
+  // ── Admin home (ladder list) ──────────────────────────────
 
+  if (screen === 'admin-home') {
+    return (
+      <>
+        <Head>
+          <title>{appName}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </Head>
+        <div style={{ minHeight: '100vh', background: '#F3F4F6' }}>
+          <div style={{ maxWidth: 640, margin: '0 auto', padding: '1.5rem 1rem' }}>
+            <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {appName}</div>
+                <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>🔧 Admin view</div>
+              </div>
+              <button onClick={logout} style={{ fontSize: 12, color: '#3B6D11', background: 'none', border: '1px solid #A8D57A', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>
+                Log out
+              </button>
+            </div>
+            <AdminHome
+              ladders={ladders}
+              onSelectLadder={enterLadder}
+              onLaddersChange={fetchLadders}
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ── Participant ladder selection ──────────────────────────
+
+  if (screen === 'ladder-select') {
+    const displayName = currentPlayer?.preferred_name || currentPlayer?.name;
+    return (
+      <>
+        <Head>
+          <title>{appName}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </Head>
+        <div style={{ minHeight: '100vh', background: '#F3F4F6' }}>
+          <div style={{ maxWidth: 640, margin: '0 auto', padding: '1.5rem 1rem' }}>
+            <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {appName}</div>
+                <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>Welcome, {displayName}</div>
+              </div>
+              <button onClick={logout} style={{ fontSize: 12, color: '#3B6D11', background: 'none', border: '1px solid #A8D57A', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>
+                Log out
+              </button>
+            </div>
+            <LadderSelect
+              ladders={ladders}
+              playerId={currentPlayer?.id}
+              onSelectLadder={enterLadder}
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ── Main app (admin or participant inside a ladder) ───────
+
+  const isAdmin = screen === 'admin';
+  const tabs = isAdmin ? ADMIN_TABS : PARTICIPANT_TABS;
+  const approvedPlayers = players.filter(p => p.status === 'approved');
   const displayName = currentPlayer?.preferred_name || currentPlayer?.name;
+  const ladderName = currentLadder?.name || appName;
 
   return (
     <>
@@ -222,10 +340,19 @@ export default function Home() {
 
           {/* Header */}
           <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {ladderName}</div>
-              <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>
-                {isAdmin ? '🔧 Admin view' : `Welcome, ${displayName}`}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                onClick={exitLadder}
+                style={{ background: 'none', border: 'none', color: '#3B6D11', fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
+                title="Back to ladders"
+              >
+                ‹
+              </button>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {ladderName}</div>
+                <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>
+                  {isAdmin ? '🔧 Admin view' : `Welcome, ${displayName}`}
+                </div>
               </div>
             </div>
             <button
@@ -268,11 +395,36 @@ export default function Home() {
                 />
               )}
               {tab === 'Matches'      && <Matches matches={matches} settings={settings} />}
-              {tab === 'My Stats'      && <MyStats currentPlayer={currentPlayer} allPlayers={approvedPlayers} />}
-              {tab === 'Submit Score' && <SubmitScore players={approvedPlayers} settings={settings} onSubmit={() => fetchAll(false)} />}
-              {tab === 'Players'      && <Players players={players} onPlayersChange={() => fetchAll(true)} />}
-              {tab === 'Settings'     && <Settings settings={settings} onSave={() => fetchAll(true)} />}
-              {tab === 'FAQ'          && <FAQ />}
+              {tab === 'My Stats'     && (
+                <MyStats
+                  currentPlayer={currentPlayer}
+                  allPlayers={approvedPlayers}
+                  ladderId={currentLadder?.id}
+                />
+              )}
+              {tab === 'Submit Score' && (
+                <SubmitScore
+                  players={approvedPlayers}
+                  settings={settings}
+                  ladderId={currentLadder?.id}
+                  onSubmit={() => fetchLadderData(currentLadder, false)}
+                />
+              )}
+              {tab === 'Players' && (
+                <Players
+                  players={players}
+                  ladderId={currentLadder?.id}
+                  onPlayersChange={() => fetchLadderData(currentLadder, true)}
+                />
+              )}
+              {tab === 'Settings' && (
+                <Settings
+                  settings={settings}
+                  ladderId={currentLadder?.id}
+                  onSave={() => fetchLadderData(currentLadder, true)}
+                />
+              )}
+              {tab === 'FAQ' && <FAQ />}
             </>
           )}
         </div>

@@ -3,9 +3,9 @@ import { useState } from 'react';
 const colors = ['green', 'blue', 'amber', 'red'];
 const avatarBg = {
   green: { bg: '#EAF3DE', text: '#3B6D11' },
-  blue: { bg: '#E6F1FB', text: '#185FA5' },
+  blue:  { bg: '#E6F1FB', text: '#185FA5' },
   amber: { bg: '#FAEEDA', text: '#BA7517' },
-  red: { bg: '#FCEBEB', text: '#A32D2D' },
+  red:   { bg: '#FCEBEB', text: '#A32D2D' },
 };
 
 function initials(name) {
@@ -18,7 +18,7 @@ const STATUS_BADGE = {
   rejected: { label: 'Rejected', bg: '#FCEBEB', color: '#A32D2D' },
 };
 
-function PlayerRow({ player, i, showApprove, showReject, onStatusChange }) {
+function PlayerRow({ player, i, ladderId, showApprove, showReject, onStatusChange }) {
   const color = colors[i % colors.length];
   const { bg, text } = avatarBg[color];
   const badge = STATUS_BADGE[player.status] || STATUS_BADGE.approved;
@@ -43,7 +43,7 @@ function PlayerRow({ player, i, showApprove, showReject, onStatusChange }) {
       </span>
       {showApprove && (
         <button
-          onClick={() => onStatusChange(player.id, 'approved')}
+          onClick={() => onStatusChange(player.player_id ?? player.id, 'approved')}
           style={{ fontSize: 12, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}
         >
           Approve
@@ -51,7 +51,7 @@ function PlayerRow({ player, i, showApprove, showReject, onStatusChange }) {
       )}
       {showReject && (
         <button
-          onClick={() => onStatusChange(player.id, 'rejected')}
+          onClick={() => onStatusChange(player.player_id ?? player.id, 'rejected')}
           style={{ fontSize: 12, background: '#FCEBEB', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}
         >
           Reject
@@ -61,17 +61,26 @@ function PlayerRow({ player, i, showApprove, showReject, onStatusChange }) {
   );
 }
 
-export default function Players({ players, onPlayersChange }) {
+export default function Players({ players, ladderId, onPlayersChange }) {
   const [error, setError] = useState('');
 
-  async function updateStatus(id, status) {
+  async function updateStatus(playerId, status) {
     setError('');
     try {
-      const res = await fetch('/api/players', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status }),
-      });
+      let res;
+      if (ladderId) {
+        res = await fetch('/api/player-ladders', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId, ladderId, status }),
+        });
+      } else {
+        res = await fetch('/api/players', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: playerId, status }),
+        });
+      }
       if (!res.ok) throw new Error('Failed to update status');
       onPlayersChange?.();
     } catch (err) {
@@ -91,19 +100,17 @@ export default function Players({ players, onPlayersChange }) {
         </div>
       )}
 
-      {/* Pending approvals */}
       {pending.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#BA7517', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
             Awaiting approval ({pending.length})
           </div>
           {pending.map((p, i) => (
-            <PlayerRow key={p.id} player={p} i={i} showApprove showReject={false} onStatusChange={updateStatus} />
+            <PlayerRow key={p.player_id ?? p.id} player={p} i={i} ladderId={ladderId} showApprove showReject={false} onStatusChange={updateStatus} />
           ))}
         </div>
       )}
 
-      {/* Approved */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
           In ladder ({approved.length})
@@ -112,19 +119,18 @@ export default function Players({ players, onPlayersChange }) {
           <div style={{ fontSize: 13, color: '#9CA3AF', padding: '8px 0' }}>No approved players yet.</div>
         ) : (
           approved.map((p, i) => (
-            <PlayerRow key={p.id} player={p} i={i} showApprove={false} showReject onStatusChange={updateStatus} />
+            <PlayerRow key={p.player_id ?? p.id} player={p} i={i} ladderId={ladderId} showApprove={false} showReject onStatusChange={updateStatus} />
           ))
         )}
       </div>
 
-      {/* Rejected */}
       {rejected.length > 0 && (
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#A32D2D', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
             Rejected ({rejected.length})
           </div>
           {rejected.map((p, i) => (
-            <PlayerRow key={p.id} player={p} i={i} showApprove showReject={false} onStatusChange={updateStatus} />
+            <PlayerRow key={p.player_id ?? p.id} player={p} i={i} ladderId={ladderId} showApprove showReject={false} onStatusChange={updateStatus} />
           ))}
         </div>
       )}

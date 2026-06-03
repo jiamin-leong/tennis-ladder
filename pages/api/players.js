@@ -2,51 +2,49 @@ import pool from '../../lib/db';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    const { status } = req.query;
+    const { status, ladderId } = req.query;
     try {
-      const { rows } = await pool.query(
-        status === 'all'
-          ? `SELECT id, name, preferred_name, whatsapp_name, points, wins, losses, status, gender, preferred_locations, joined_at
-             FROM players WHERE active = TRUE
-             ORDER BY
-               CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
-               points DESC, wins DESC, joined_at ASC`
-          : `SELECT id, name, preferred_name, whatsapp_name, points, wins, losses, status, joined_at
-             FROM players WHERE active = TRUE AND status = 'approved'
-             ORDER BY points DESC, wins DESC, joined_at ASC`
-      );
+      let rows;
+      if (ladderId) {
+        // Return players with ladder-specific stats
+        ({ rows } = await pool.query(
+          status === 'all'
+            ? `SELECT p.id, COALESCE(p.preferred_name, p.name) AS name, p.preferred_name,
+                 p.gender, p.preferred_locations, p.joined_at,
+                 pl.points, pl.wins, pl.losses, pl.status, pl.joined_at AS ladder_joined_at
+               FROM player_ladders pl
+               JOIN players p ON p.id = pl.player_id
+               WHERE pl.ladder_id = $1 AND p.active = TRUE
+               ORDER BY
+                 CASE pl.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+                 pl.points DESC, pl.wins DESC`
+            : `SELECT p.id, COALESCE(p.preferred_name, p.name) AS name, p.preferred_name,
+                 p.gender, p.preferred_locations, p.joined_at,
+                 pl.points, pl.wins, pl.losses, pl.status
+               FROM player_ladders pl
+               JOIN players p ON p.id = pl.player_id
+               WHERE pl.ladder_id = $1 AND pl.status = 'approved' AND p.active = TRUE
+               ORDER BY pl.points DESC, pl.wins DESC`,
+          [ladderId]
+        ));
+      } else {
+        // Legacy: return all active players (for dropdowns, admin player list without ladder context)
+        ({ rows } = await pool.query(
+          status === 'all'
+            ? `SELECT id, name, preferred_name, points, wins, losses, status, gender, preferred_locations, joined_at
+               FROM players WHERE active = TRUE
+               ORDER BY
+                 CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+                 points DESC, wins DESC, joined_at ASC`
+            : `SELECT id, name, preferred_name, points, wins, losses, status, joined_at
+               FROM players WHERE active = TRUE AND status = 'approved'
+               ORDER BY points DESC, wins DESC, joined_at ASC`
+        ));
+      }
       return res.status(200).json(rows);
     } catch (err) {
       console.error('GET /api/players error:', err);
       return res.status(500).json({ error: 'Failed to fetch players' });
-    }
-  }
-
-  if (req.method === 'POST') {
-    const { name, whatsapp_name } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'Player name is required' });
-    }
-
-    const existing = await pool.query(
-      'SELECT id FROM players WHERE LOWER(name) = LOWER($1)',
-      [name.trim()]
-    );
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'A player with that name already exists' });
-    }
-
-    try {
-      const { rows } = await pool.query(
-        `INSERT INTO players (name, whatsapp_name, status)
-         VALUES ($1, $2, 'pending')
-         RETURNING id, name, whatsapp_name, points, wins, losses, status, joined_at`,
-        [name.trim(), whatsapp_name?.trim() || null]
-      );
-      return res.status(201).json(rows[0]);
-    } catch (err) {
-      console.error('POST /api/players error:', err);
-      return res.status(500).json({ error: 'Failed to add player' });
     }
   }
 
@@ -57,8 +55,7 @@ export default async function handler(req, res) {
     }
     try {
       const { rows } = await pool.query(
-        `UPDATE players SET status = $1 WHERE id = $2 AND active = TRUE
-         RETURNING id, name, status`,
+        `UPDATE players SET status = $1 WHERE id = $2 AND active = TRUE RETURNING id, name, status`,
         [status, id]
       );
       if (rows.length === 0) return res.status(404).json({ error: 'Player not found' });
@@ -69,6 +66,6 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', ['GET', 'POST', 'PATCH']);
+  res.setHeader('Allow', ['GET', 'PATCH']);
   return res.status(405).json({ error: `Method ${req.method} not allowed` });
 }

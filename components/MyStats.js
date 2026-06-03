@@ -5,17 +5,19 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 }
 
-export default function MyStats({ currentPlayer, allPlayers }) {
+export default function MyStats({ currentPlayer, allPlayers, ladderId }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!currentPlayer?.id) return;
-    fetch(`/api/matches?playerId=${currentPlayer.id}`)
+    const params = new URLSearchParams({ playerId: currentPlayer.id });
+    if (ladderId) params.set('ladderId', ladderId);
+    fetch(`/api/matches?${params}`)
       .then(r => r.ok ? r.json() : [])
       .then(data => { setMatches(data); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [currentPlayer?.id]);
+  }, [currentPlayer?.id, ladderId]);
 
   const rank = allPlayers.findIndex(p => p.id === currentPlayer?.id) + 1;
   const player = allPlayers.find(p => p.id === currentPlayer?.id);

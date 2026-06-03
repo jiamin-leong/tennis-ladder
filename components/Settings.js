@@ -158,7 +158,7 @@ function FAQEditor() {
   );
 }
 
-export default function Settings({ settings, onSave }) {
+export default function Settings({ settings, onSave, ladderId }) {
   const [form, setForm] = useState({
     name: '',
     start_date: '',
@@ -203,10 +203,12 @@ export default function Settings({ settings, onSave }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/settings', {
+      const url = ladderId ? '/api/ladders' : '/api/settings';
+      const body = ladderId ? { id: ladderId, ...form } : form;
+      const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('Failed to save');
       setSaved(true);

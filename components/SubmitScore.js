@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function SubmitScore({ players, settings, onSubmit }) {
+export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
   const [p1, setP1] = useState('');
   const [p2, setP2] = useState('');
   const [winner, setWinner] = useState(''); // p1 id | p2 id | 'draw'
@@ -57,6 +57,7 @@ export default function SubmitScore({ players, settings, onSubmit }) {
           score: buildScoreString(),
           court,
           playedAt,
+          ladderId: ladderId ? Number(ladderId) : undefined,
         }),
       });
       const data = await res.json();

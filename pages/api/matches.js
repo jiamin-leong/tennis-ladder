@@ -2,31 +2,56 @@ import pool from '../../lib/db';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    const { playerId } = req.query;
+    const { playerId, ladderId } = req.query;
     try {
-      const base = `
-        SELECT
-          m.id,
-          m.score,
-          m.winner_pts,
-          m.loser_pts,
-          m.court,
-          m.played_at,
-          w.id   AS winner_id,
-          COALESCE(w.preferred_name, w.name) AS winner_name,
-          l.id   AS loser_id,
-          COALESCE(l.preferred_name, l.name) AS loser_name
-        FROM matches m
-        JOIN players w ON m.winner_id = w.id
-        JOIN players l ON m.loser_id  = l.id`;
+      let query, params;
 
-      const { rows } = playerId
-        ? await pool.query(
-            base + ` WHERE w.id = $1 OR l.id = $1 ORDER BY m.played_at DESC LIMIT 100`,
-            [playerId]
-          )
-        : await pool.query(base + ` ORDER BY m.played_at DESC LIMIT 50`);
+      if (playerId && ladderId) {
+        query = `
+          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
+            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
+            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
+          FROM matches m
+          JOIN players w ON m.winner_id = w.id
+          JOIN players l ON m.loser_id  = l.id
+          WHERE m.ladder_id = $1 AND (w.id = $2 OR l.id = $2)
+          ORDER BY m.played_at DESC LIMIT 100`;
+        params = [ladderId, playerId];
+      } else if (ladderId) {
+        query = `
+          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
+            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
+            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
+          FROM matches m
+          JOIN players w ON m.winner_id = w.id
+          JOIN players l ON m.loser_id  = l.id
+          WHERE m.ladder_id = $1
+          ORDER BY m.played_at DESC LIMIT 50`;
+        params = [ladderId];
+      } else if (playerId) {
+        query = `
+          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
+            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
+            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
+          FROM matches m
+          JOIN players w ON m.winner_id = w.id
+          JOIN players l ON m.loser_id  = l.id
+          WHERE w.id = $1 OR l.id = $1
+          ORDER BY m.played_at DESC LIMIT 100`;
+        params = [playerId];
+      } else {
+        query = `
+          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
+            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
+            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
+          FROM matches m
+          JOIN players w ON m.winner_id = w.id
+          JOIN players l ON m.loser_id  = l.id
+          ORDER BY m.played_at DESC LIMIT 50`;
+        params = [];
+      }
 
+      const { rows } = await pool.query(query, params);
       return res.status(200).json(rows);
     } catch (err) {
       console.error('GET /api/matches error:', err);
@@ -35,10 +60,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { p1Id, p2Id, winnerId, score, court, playedAt } = req.body;
+    const { p1Id, p2Id, winnerId, score, court, playedAt, ladderId } = req.body;
 
-    if (!p1Id || !p2Id || !winnerId) {
-      return res.status(400).json({ error: 'p1Id, p2Id and winnerId are required' });
+    if (!p1Id || !p2Id || !winnerId || !ladderId) {
+      return res.status(400).json({ error: 'p1Id, p2Id, winnerId, and ladderId are required' });
     }
     if (p1Id === p2Id) {
       return res.status(400).json({ error: 'Players must be different' });
@@ -48,10 +73,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'winnerId must be one of the two players or "draw"' });
     }
 
-    const settingsRes = await pool.query(
-      'SELECT win_pts, loss_pts, draw_pts FROM ladder_settings ORDER BY id LIMIT 1'
+    const ladderRes = await pool.query(
+      'SELECT win_pts, loss_pts, draw_pts FROM ladders WHERE id = $1',
+      [ladderId]
     );
-    const { win_pts = 3, loss_pts = 0, draw_pts = 1 } = settingsRes.rows[0] || {};
+    if (ladderRes.rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });
+    const { win_pts = 3, loss_pts = 0, draw_pts = 1 } = ladderRes.rows[0];
 
     const resolvedWinnerId = isDraw ? p1Id : winnerId;
     const resolvedLoserId  = isDraw ? p2Id : (winnerId === p1Id ? p2Id : p1Id);
@@ -64,8 +91,8 @@ export default async function handler(req, res) {
       await client.query('BEGIN');
 
       const { rows } = await client.query(
-        `INSERT INTO matches (winner_id, loser_id, score, sets_played, winner_pts, loser_pts, court, played_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO matches (winner_id, loser_id, score, sets_played, winner_pts, loser_pts, court, played_at, ladder_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           resolvedWinnerId,
@@ -76,22 +103,26 @@ export default async function handler(req, res) {
           loserPts,
           court?.trim() || null,
           playedAt ? new Date(playedAt) : new Date(),
+          ladderId,
         ]
       );
 
       if (isDraw) {
         await client.query(
-          `UPDATE players SET points = points + $1 WHERE id IN ($2, $3)`,
-          [draw_pts, p1Id, p2Id]
+          `UPDATE player_ladders SET points = points + $1
+           WHERE ladder_id = $2 AND player_id IN ($3, $4)`,
+          [draw_pts, ladderId, p1Id, p2Id]
         );
       } else {
         await client.query(
-          `UPDATE players SET points = points + $1, wins = wins + 1 WHERE id = $2`,
-          [win_pts, resolvedWinnerId]
+          `UPDATE player_ladders SET points = points + $1, wins = wins + 1
+           WHERE ladder_id = $2 AND player_id = $3`,
+          [win_pts, ladderId, resolvedWinnerId]
         );
         await client.query(
-          `UPDATE players SET points = points + $1, losses = losses + 1 WHERE id = $2`,
-          [loss_pts, resolvedLoserId]
+          `UPDATE player_ladders SET points = points + $1, losses = losses + 1
+           WHERE ladder_id = $2 AND player_id = $3`,
+          [loss_pts, ladderId, resolvedLoserId]
         );
       }
 

@@ -1,0 +1,79 @@
+import pool from '../../lib/db';
+
+export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    const { ladderId, playerId } = req.query;
+    if (!ladderId) return res.status(400).json({ error: 'ladderId required' });
+    try {
+      let query, params;
+      if (playerId) {
+        query = `
+          SELECT pl.*, COALESCE(p.preferred_name, p.name) AS name, p.phone, p.gender
+          FROM player_ladders pl
+          JOIN players p ON p.id = pl.player_id
+          WHERE pl.ladder_id = $1 AND pl.player_id = $2
+        `;
+        params = [ladderId, playerId];
+      } else {
+        query = `
+          SELECT pl.*, COALESCE(p.preferred_name, p.name) AS name, p.phone, p.gender,
+                 p.preferred_name, p.preferred_locations
+          FROM player_ladders pl
+          JOIN players p ON p.id = pl.player_id
+          WHERE pl.ladder_id = $1
+          ORDER BY
+            CASE pl.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+            pl.points DESC
+        `;
+        params = [ladderId];
+      }
+      const { rows } = await pool.query(query, params);
+      return res.status(200).json(rows);
+    } catch (err) {
+      console.error('GET /api/player-ladders error:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
+
+  if (req.method === 'POST') {
+    // Player requests to join a ladder
+    const { playerId, ladderId } = req.body;
+    if (!playerId || !ladderId) return res.status(400).json({ error: 'playerId and ladderId required' });
+    try {
+      const { rows } = await pool.query(
+        `INSERT INTO player_ladders (player_id, ladder_id, status)
+         VALUES ($1, $2, 'pending')
+         ON CONFLICT (player_id, ladder_id) DO NOTHING
+         RETURNING *`,
+        [playerId, ladderId]
+      );
+      return res.status(201).json(rows[0] || { player_id: playerId, ladder_id: ladderId, status: 'pending' });
+    } catch (err) {
+      console.error('POST /api/player-ladders error:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
+
+  if (req.method === 'PATCH') {
+    // Admin approves or rejects a player in a ladder
+    const { playerId, ladderId, status } = req.body;
+    if (!playerId || !ladderId || !status) return res.status(400).json({ error: 'playerId, ladderId, status required' });
+    if (!['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    try {
+      const { rows } = await pool.query(
+        `UPDATE player_ladders SET status=$1 WHERE player_id=$2 AND ladder_id=$3 RETURNING *`,
+        [status, playerId, ladderId]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+      return res.status(200).json(rows[0]);
+    } catch (err) {
+      console.error('PATCH /api/player-ladders error:', err);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
+
+  res.setHeader('Allow', ['GET', 'POST', 'PATCH']);
+  return res.status(405).json({ error: 'Method not allowed' });
+}
