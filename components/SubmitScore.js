@@ -3,60 +3,73 @@ import { useState } from 'react';
 export default function SubmitScore({ players, settings, onSubmit }) {
   const [p1, setP1] = useState('');
   const [p2, setP2] = useState('');
+  const [winner, setWinner] = useState(''); // p1 id | p2 id | 'draw'
   const [sets, setSets] = useState([
-    { p1: 6, p2: 3 },
-    { p1: 6, p2: 4 },
-    { p1: null, p2: null },
+    { p1: '', p2: '' },
+    { p1: '', p2: '' },
+    { p1: '', p2: '' },
   ]);
   const [court, setCourt] = useState('');
   const [playedAt, setPlayedAt] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const activeSets = sets[0].p1 !== null && sets[1].p1 !== null;
+  const player1 = players.find(p => String(p.id) === p1);
+  const player2 = players.find(p => String(p.id) === p2);
+  const bothSelected = p1 && p2 && p1 !== p2;
 
-  // Work out who wins based on current set inputs
-  function preview() {
-    if (!p1 || !p2) return null;
-    let s1 = 0, s2 = 0;
-    for (const s of sets) {
-      if (s.p1 === null || s.p2 === null) continue;
-      if (s.p1 > s.p2) s1++; else if (s.p2 > s.p1) s2++;
-    }
-    if (s1 < 2 && s2 < 2) return null;
-    const winnerName = s1 > s2 ? players.find(p => String(p.id) === p1)?.name : players.find(p => String(p.id) === p2)?.name;
-    const winPts = settings?.win_pts ?? 3;
-    const losPts = settings?.loss_pts ?? 0;
-    return { winnerName, winPts, losPts };
-  }
+  const winPts  = settings?.win_pts  ?? 3;
+  const lossPts = settings?.loss_pts ?? 0;
+  const drawPts = settings?.draw_pts ?? 1;
+
+  function handleP1Change(val) { setP1(val); setWinner(''); }
+  function handleP2Change(val) { setP2(val); setWinner(''); }
 
   function updateSet(i, side, val) {
-    const next = sets.map((s, idx) => idx === i ? { ...s, [side]: val === '' ? null : Number(val) } : s);
-    setSets(next);
+    setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [side]: val } : s));
+  }
+
+  function buildScoreString() {
+    return sets
+      .filter(s => s.p1 !== '' && s.p2 !== '')
+      .map(s => `${s.p1}-${s.p2}`)
+      .join(', ') || '—';
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     if (!p1 || !p2) return setError('Please select both players.');
-    if (p1 === p2) return setError('Players must be different.');
+    if (p1 === p2)  return setError('Players must be different.');
+    if (!winner)    return setError('Please select who won.');
+    if (sets[0].p1 === '' || sets[0].p2 === '')
+      return setError('Please enter the Set 1 score.');
 
     setLoading(true);
     try {
       const res = await fetch('/api/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ p1Id: Number(p1), p2Id: Number(p2), sets, court, playedAt }),
+        body: JSON.stringify({
+          p1Id: Number(p1),
+          p2Id: Number(p2),
+          winnerId: winner === 'draw' ? 'draw' : Number(winner),
+          score: buildScoreString(),
+          court,
+          playedAt,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit');
 
-      const winner = players.find(p => p.id === data.winnerId);
-      alert(`✅ Match recorded!\n${winner?.name} wins (${data.scoreString})\n+${data.winnerPts} pts`);
+      const winnerPlayer = winner === 'draw' ? null : players.find(p => String(p.id) === winner);
+      const msg = winner === 'draw'
+        ? `✅ Draw recorded! Both players get +${drawPts} pts`
+        : `✅ Match recorded!\n${winnerPlayer?.preferred_name || winnerPlayer?.name} wins · +${winPts} pts`;
+      alert(msg);
 
-      // Reset form
-      setP1(''); setP2(''); setCourt('');
-      setSets([{ p1: 6, p2: 3 }, { p1: 6, p2: 4 }, { p1: null, p2: null }]);
+      setP1(''); setP2(''); setWinner(''); setCourt('');
+      setSets([{ p1: '', p2: '' }, { p1: '', p2: '' }, { p1: '', p2: '' }]);
       onSubmit?.();
     } catch (err) {
       setError(err.message);
@@ -65,7 +78,27 @@ export default function SubmitScore({ players, settings, onSubmit }) {
     }
   }
 
-  const pre = preview();
+  const labelStyle = { display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 };
+
+  function WinnerBtn({ value, label, pts }) {
+    const selected = winner === value;
+    return (
+      <button
+        type="button"
+        onClick={() => setWinner(value)}
+        style={{
+          flex: 1, padding: '10px 6px', fontSize: 13, fontWeight: 600,
+          borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
+          border: selected ? '2px solid #3B6D11' : '2px solid #E5E7EB',
+          background: selected ? '#EAF3DE' : 'white',
+          color: selected ? '#27500A' : '#6B7280',
+        }}
+      >
+        <div style={{ marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 11, fontWeight: 400, color: selected ? '#3B6D11' : '#9CA3AF' }}>+{pts} pts</div>
+      </button>
+    );
+  }
 
   return (
     <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '1.25rem' }}>
@@ -74,60 +107,99 @@ export default function SubmitScore({ players, settings, onSubmit }) {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        {/* Player selectors */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Player 1</label>
-            <select value={p1} onChange={e => setP1(e.target.value)}>
-              <option value="">Select player…</option>
-              {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <label style={labelStyle}>Player 1</label>
+            <select value={p1} onChange={e => handleP1Change(e.target.value)}>
+              <option value="">Select…</option>
+              {players.map(p => (
+                <option key={p.id} value={p.id} disabled={String(p.id) === p2}>
+                  {p.preferred_name || p.name}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Player 2</label>
-            <select value={p2} onChange={e => setP2(e.target.value)}>
-              <option value="">Select player…</option>
-              {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <label style={labelStyle}>Player 2</label>
+            <select value={p2} onChange={e => handleP2Change(e.target.value)}>
+              <option value="">Select…</option>
+              {players.map(p => (
+                <option key={p.id} value={p.id} disabled={String(p.id) === p1}>
+                  {p.preferred_name || p.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
-        <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 6 }}>Set scores</label>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-          {sets.map((s, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#6B7280' }}>
-              <span>Set {i + 1}:</span>
-              <input
-                type="number" min="0" max="7" style={{ width: 48, textAlign: 'center', opacity: i === 2 && s.p1 === null ? 0.5 : 1 }}
-                value={s.p1 ?? ''} placeholder="–"
-                onChange={e => updateSet(i, 'p1', e.target.value)}
-              />
-              <span>–</span>
-              <input
-                type="number" min="0" max="7" style={{ width: 48, textAlign: 'center', opacity: i === 2 && s.p2 === null ? 0.5 : 1 }}
-                value={s.p2 ?? ''} placeholder="–"
-                onChange={e => updateSet(i, 'p2', e.target.value)}
-              />
+        {/* Who won — shown once both players are selected */}
+        {bothSelected && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Who won?</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <WinnerBtn value={p1} label={player1?.preferred_name || player1?.name} pts={winPts} />
+              <WinnerBtn value="draw" label="Draw" pts={drawPts} />
+              <WinnerBtn value={p2} label={player2?.preferred_name || player2?.name} pts={winPts} />
             </div>
-          ))}
+          </div>
+        )}
+
+        {/* Set scores */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Set scores</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {sets.map((s, i) => {
+              const isRequired = i === 0;
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 13, color: '#6B7280', minWidth: 44 }}>
+                    Set {i + 1}
+                    {isRequired
+                      ? <span style={{ color: '#A32D2D', marginLeft: 2 }}>*</span>
+                      : <span style={{ color: '#9CA3AF', fontSize: 11, marginLeft: 4 }}>opt.</span>
+                    }
+                  </span>
+                  <input
+                    type="number" min="0" max="99"
+                    value={s.p1} placeholder="0"
+                    onChange={e => updateSet(i, 'p1', e.target.value)}
+                    style={{
+                      width: 64, textAlign: 'center', margin: 0,
+                      fontSize: 22, fontWeight: 600, padding: '10px 6px',
+                      border: '1.5px solid #D1D5DB', borderRadius: 10,
+                      MozAppearance: 'textfield',
+                    }}
+                  />
+                  <span style={{ fontSize: 18, color: '#9CA3AF', fontWeight: 300 }}>–</span>
+                  <input
+                    type="number" min="0" max="99"
+                    value={s.p2} placeholder="0"
+                    onChange={e => updateSet(i, 'p2', e.target.value)}
+                    style={{
+                      width: 64, textAlign: 'center', margin: 0,
+                      fontSize: 22, fontWeight: 600, padding: '10px 6px',
+                      border: '1.5px solid #D1D5DB', borderRadius: 10,
+                      MozAppearance: 'textfield',
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        {/* Date and court */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Date played</label>
+            <label style={labelStyle}>Date played</label>
             <input type="date" value={playedAt} onChange={e => setPlayedAt(e.target.value)} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Court (optional)</label>
+            <label style={labelStyle}>Court <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(optional)</span></label>
             <input type="text" value={court} onChange={e => setCourt(e.target.value)} placeholder="e.g. Court 3" />
           </div>
         </div>
-
-        {pre && (
-          <div style={{ background: '#EAF3DE', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#27500A' }}>
-            🎾 <strong>{pre.winnerName}</strong> wins · +{pre.winPts} pts
-            {pre.losPts > 0 && ` · loser gets +${pre.losPts} pt`}
-          </div>
-        )}
 
         {error && (
           <div style={{ background: '#FCEBEB', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#A32D2D' }}>
@@ -137,8 +209,13 @@ export default function SubmitScore({ players, settings, onSubmit }) {
 
         <button
           type="submit"
-          disabled={loading}
-          style={{ background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 500, width: '100%', opacity: loading ? 0.7 : 1 }}
+          disabled={loading || !bothSelected || !winner}
+          style={{
+            background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8,
+            padding: '12px 20px', fontSize: 14, fontWeight: 500, width: '100%',
+            opacity: (loading || !bothSelected || !winner) ? 0.5 : 1,
+            cursor: (loading || !bothSelected || !winner) ? 'default' : 'pointer',
+          }}
         >
           {loading ? 'Submitting…' : 'Submit result →'}
         </button>

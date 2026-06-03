@@ -6,12 +6,13 @@ import SubmitScore from '../components/SubmitScore';
 import Players from '../components/Players';
 import Settings from '../components/Settings';
 import FAQ from '../components/FAQ';
+import MyStats from '../components/MyStats';
 import LoginScreen from '../components/LoginScreen';
 import RegisterScreen from '../components/RegisterScreen';
 import PendingScreen from '../components/PendingScreen';
 
 const ADMIN_TABS = ['Leaderboard', 'Matches', 'Players', 'Settings'];
-const PARTICIPANT_TABS = ['Leaderboard', 'Submit Score', 'FAQ'];
+const PARTICIPANT_TABS = ['Leaderboard', 'My Stats', 'Submit Score', 'FAQ'];
 const SESSION_KEY = 'tennis_ladder_session';
 
 // 'loading' | 'login' | 'register' | 'pending' | 'rejected' | 'participant' | 'admin'
@@ -266,7 +267,8 @@ export default function Home() {
                   currentPlayerId={isAdmin ? null : currentPlayer?.id}
                 />
               )}
-              {tab === 'Matches'      && <Matches matches={matches} />}
+              {tab === 'Matches'      && <Matches matches={matches} settings={settings} />}
+              {tab === 'My Stats'      && <MyStats currentPlayer={currentPlayer} allPlayers={approvedPlayers} />}
               {tab === 'Submit Score' && <SubmitScore players={approvedPlayers} settings={settings} onSubmit={() => fetchAll(false)} />}
               {tab === 'Players'      && <Players players={players} onPlayersChange={() => fetchAll(true)} />}
               {tab === 'Settings'     && <Settings settings={settings} onSave={() => fetchAll(true)} />}

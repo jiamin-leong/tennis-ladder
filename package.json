@@ -9,10 +9,11 @@
     "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "next": "14.2.3",
+    "pg": "^8.11.5",
     "react": "^18",
-    "react-dom": "^18",
-    "pg": "^8.11.5"
+    "react-dom": "^18"
   },
   "devDependencies": {
     "autoprefixer": "^10.0.1",

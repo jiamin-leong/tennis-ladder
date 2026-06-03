@@ -1,12 +1,169 @@
 import { useState, useEffect } from 'react';
 
+function FAQEditor() {
+  const [faqs, setFaqs] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ question: '', answer: '' });
+  const [adding, setAdding] = useState(false);
+  const [newForm, setNewForm] = useState({ question: '', answer: '' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => { loadFaqs(); }, []);
+
+  async function loadFaqs() {
+    const res = await fetch('/api/faqs');
+    if (res.ok) setFaqs(await res.json());
+  }
+
+  function startEdit(faq) {
+    setEditingId(faq.id);
+    setEditForm({ question: faq.question, answer: faq.answer });
+    setAdding(false);
+  }
+
+  async function saveEdit() {
+    if (!editForm.question.trim() || !editForm.answer.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/faqs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId, ...editForm }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      setEditingId(null);
+      await loadFaqs();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteFaq(id) {
+    if (!confirm('Delete this FAQ?')) return;
+    await fetch('/api/faqs', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    await loadFaqs();
+  }
+
+  async function addFaq() {
+    if (!newForm.question.trim() || !newForm.answer.trim()) return;
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/faqs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newForm),
+      });
+      if (!res.ok) throw new Error('Failed to add');
+      setNewForm({ question: '', answer: '' });
+      setAdding(false);
+      await loadFaqs();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const taStyle = { width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid #D1D5DB', borderRadius: 8, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', marginBottom: 6 };
+  const labelStyle = { display: 'block', fontSize: 12, color: '#6B7280', marginBottom: 3 };
+
+  return (
+    <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '1.25rem', marginTop: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          FAQ editor
+        </div>
+        {!adding && (
+          <button
+            onClick={() => { setAdding(true); setEditingId(null); }}
+            style={{ fontSize: 12, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}
+          >
+            + Add question
+          </button>
+        )}
+      </div>
+
+      {error && <div style={{ fontSize: 13, color: '#A32D2D', marginBottom: 10 }}>{error}</div>}
+
+      {/* Existing FAQs */}
+      {faqs.map(faq => (
+        <div key={faq.id} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: '12px', marginBottom: 8 }}>
+          {editingId === faq.id ? (
+            <>
+              <label style={labelStyle}>Question</label>
+              <textarea rows={2} value={editForm.question} onChange={e => setEditForm(f => ({ ...f, question: e.target.value }))} style={taStyle} />
+              <label style={labelStyle}>Answer</label>
+              <textarea rows={3} value={editForm.answer} onChange={e => setEditForm(f => ({ ...f, answer: e.target.value }))} style={taStyle} />
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <button onClick={saveEdit} disabled={saving} style={{ fontSize: 12, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, padding: '5px 14px', cursor: 'pointer' }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button onClick={() => setEditingId(null)} style={{ fontSize: 12, background: 'none', color: '#6B7280', border: '1px solid #D1D5DB', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#111827', marginBottom: 2 }}>{faq.question}</div>
+                <div style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.5 }}>{faq.answer}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => startEdit(faq)} style={{ fontSize: 12, background: 'none', color: '#3B6D11', border: '1px solid #A8D57A', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+                  Edit
+                </button>
+                <button onClick={() => deleteFaq(faq.id)} style={{ fontSize: 12, background: 'none', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* Add new FAQ form */}
+      {adding && (
+        <div style={{ border: '1px dashed #A8D57A', borderRadius: 8, padding: '12px', marginBottom: 8, background: '#F9FAFB' }}>
+          <label style={labelStyle}>Question</label>
+          <textarea rows={2} value={newForm.question} onChange={e => setNewForm(f => ({ ...f, question: e.target.value }))} placeholder="e.g. How do I challenge another player?" style={taStyle} />
+          <label style={labelStyle}>Answer</label>
+          <textarea rows={3} value={newForm.answer} onChange={e => setNewForm(f => ({ ...f, answer: e.target.value }))} placeholder="Type the answer here…" style={taStyle} />
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button onClick={addFaq} disabled={saving} style={{ fontSize: 12, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, padding: '5px 14px', cursor: 'pointer' }}>
+              {saving ? 'Adding…' : 'Add FAQ'}
+            </button>
+            <button onClick={() => { setAdding(false); setNewForm({ question: '', answer: '' }); }} style={{ fontSize: 12, background: 'none', color: '#6B7280', border: '1px solid #D1D5DB', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {faqs.length === 0 && !adding && (
+        <div style={{ textAlign: 'center', padding: '1rem 0', color: '#9CA3AF', fontSize: 13 }}>
+          No FAQs yet. Add your first question above.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings({ settings, onSave }) {
   const [form, setForm] = useState({
     name: '',
     start_date: '',
     end_date: '',
     allow_join: 'bottom',
-    whatsapp_group: '',
     win_pts: 3,
     loss_pts: 0,
     draw_pts: 1,
@@ -21,7 +178,6 @@ export default function Settings({ settings, onSave }) {
         start_date: settings.start_date?.split('T')[0] || '',
         end_date: settings.end_date?.split('T')[0] || '',
         allow_join: settings.allow_join || 'bottom',
-        whatsapp_group: settings.whatsapp_group || '',
         win_pts: settings.win_pts ?? 3,
         loss_pts: settings.loss_pts ?? 0,
         draw_pts: settings.draw_pts ?? 1,
@@ -65,13 +221,13 @@ export default function Settings({ settings, onSave }) {
 
   const left = daysLeft();
   const prog = progress();
-
   const fieldStyle = { marginBottom: 12 };
   const labelStyle = { display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 };
   const ptsInput = { width: 72, textAlign: 'center', margin: 0 };
 
   return (
     <div>
+      {/* Ladder settings */}
       <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '1.25rem', marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
           Ladder settings
@@ -95,11 +251,6 @@ export default function Settings({ settings, onSave }) {
           </div>
 
           <div style={fieldStyle}>
-            <label style={labelStyle}>WhatsApp group name</label>
-            <input type="text" value={form.whatsapp_group} onChange={e => setForm(f => ({ ...f, whatsapp_group: e.target.value }))} placeholder="e.g. Raffles TC Chat" />
-          </div>
-
-          <div style={fieldStyle}>
             <label style={labelStyle}>Allow new players to join</label>
             <select value={form.allow_join} onChange={e => setForm(f => ({ ...f, allow_join: e.target.value }))}>
               <option value="yes">Yes — join at current last place</option>
@@ -108,39 +259,22 @@ export default function Settings({ settings, onSave }) {
             </select>
           </div>
 
-          {/* Points system */}
           <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '1rem', marginBottom: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
               Points per result
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              <div style={{ textAlign: 'center' }}>
-                <label style={{ ...labelStyle, textAlign: 'center' }}>Win</label>
-                <input
-                  type="number" min="0" max="99"
-                  value={form.win_pts}
-                  onChange={e => setForm(f => ({ ...f, win_pts: Number(e.target.value) }))}
-                  style={ptsInput}
-                />
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <label style={{ ...labelStyle, textAlign: 'center' }}>Loss</label>
-                <input
-                  type="number" min="0" max="99"
-                  value={form.loss_pts}
-                  onChange={e => setForm(f => ({ ...f, loss_pts: Number(e.target.value) }))}
-                  style={ptsInput}
-                />
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <label style={{ ...labelStyle, textAlign: 'center' }}>Draw</label>
-                <input
-                  type="number" min="0" max="99"
-                  value={form.draw_pts}
-                  onChange={e => setForm(f => ({ ...f, draw_pts: Number(e.target.value) }))}
-                  style={ptsInput}
-                />
-              </div>
+              {[['Win', 'win_pts'], ['Loss', 'loss_pts'], ['Draw', 'draw_pts']].map(([label, key]) => (
+                <div key={key} style={{ textAlign: 'center' }}>
+                  <label style={{ ...labelStyle, textAlign: 'center' }}>{label}</label>
+                  <input
+                    type="number" min="0" max="99"
+                    value={form[key]}
+                    onChange={e => setForm(f => ({ ...f, [key]: Number(e.target.value) }))}
+                    style={ptsInput}
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -172,6 +306,9 @@ export default function Settings({ settings, onSave }) {
           </div>
         )}
       </div>
+
+      {/* FAQ editor */}
+      <FAQEditor />
     </div>
   );
 }

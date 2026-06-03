@@ -58,3 +58,13 @@ button {
   border-radius: 8px;
   transition: opacity 0.15s, background 0.15s;
 }
+
+/* Hide number input spinners */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
