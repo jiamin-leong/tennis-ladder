@@ -1,4 +1,4 @@
-export default function Leaderboard({ players, matchCount }) {
+export default function Leaderboard({ players, matchCount, currentPlayerId }) {
   const colors = ['green', 'blue', 'amber', 'red'];
   const avatarBg = {
     green: { bg: '#EAF3DE', text: '#3B6D11' },
@@ -18,6 +18,8 @@ export default function Leaderboard({ players, matchCount }) {
     return '#9CA3AF';
   }
 
+  const myRank = currentPlayerId ? players.findIndex(p => p.id === currentPlayerId) : -1;
+
   return (
     <div>
       {/* Summary cards */}
@@ -32,23 +34,32 @@ export default function Leaderboard({ players, matchCount }) {
         </div>
       </div>
 
+      {/* Current player's position callout */}
+      {myRank >= 0 && (
+        <div style={{ background: '#EAF3DE', border: '1px solid #A8D57A', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#27500A', fontWeight: 500 }}>
+          🎾 You are ranked <strong>#{myRank + 1}</strong> with <strong>{players[myRank].points} pts</strong>
+        </div>
+      )}
+
       <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
         Standings
       </div>
 
       {players.length === 0 && (
         <div style={{ textAlign: 'center', padding: '3rem 0', color: '#9CA3AF', fontSize: 14 }}>
-          No players yet. Go to the Players tab to add your group members.
+          No players yet.
         </div>
       )}
 
       {players.map((player, i) => {
+        const isMe = player.id === currentPlayerId;
         const color = colors[i % colors.length];
         const { bg, text } = avatarBg[color];
+        const displayName = player.preferred_name || player.name;
         return (
           <div key={player.id} style={{
-            background: 'white',
-            border: '1px solid #E5E7EB',
+            background: isMe ? '#EAF3DE' : 'white',
+            border: isMe ? '2px solid #A8D57A' : '1px solid #E5E7EB',
             borderRadius: 12,
             padding: '12px 16px',
             marginBottom: 8,
@@ -60,10 +71,13 @@ export default function Leaderboard({ players, matchCount }) {
               {i + 1}
             </div>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: bg, color: text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
-              {initials(player.name)}
+              {initials(displayName)}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 500, fontSize: 15 }}>{player.name}</div>
+              <div style={{ fontWeight: 500, fontSize: 15 }}>
+                {displayName}
+                {isMe && <span style={{ fontSize: 11, color: '#3B6D11', marginLeft: 6, fontWeight: 600 }}>YOU</span>}
+              </div>
               <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
                 {player.wins}W · {player.losses}L
               </div>

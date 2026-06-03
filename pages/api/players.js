@@ -6,12 +6,12 @@ export default async function handler(req, res) {
     try {
       const { rows } = await pool.query(
         status === 'all'
-          ? `SELECT id, name, whatsapp_name, points, wins, losses, status, joined_at
+          ? `SELECT id, name, preferred_name, whatsapp_name, points, wins, losses, status, gender, preferred_locations, joined_at
              FROM players WHERE active = TRUE
              ORDER BY
                CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
                points DESC, wins DESC, joined_at ASC`
-          : `SELECT id, name, whatsapp_name, points, wins, losses, status, joined_at
+          : `SELECT id, name, preferred_name, whatsapp_name, points, wins, losses, status, joined_at
              FROM players WHERE active = TRUE AND status = 'approved'
              ORDER BY points DESC, wins DESC, joined_at ASC`
       );

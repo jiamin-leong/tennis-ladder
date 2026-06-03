@@ -10,10 +10,19 @@ async function migrate() {
   const client = await pool.connect();
   try {
     console.log('Running migrations...');
+    // From previous migration
     await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'approved'`);
     await client.query(`ALTER TABLE ladder_settings ADD COLUMN IF NOT EXISTS win_pts INT NOT NULL DEFAULT 3`);
     await client.query(`ALTER TABLE ladder_settings ADD COLUMN IF NOT EXISTS loss_pts INT NOT NULL DEFAULT 0`);
     await client.query(`ALTER TABLE ladder_settings ADD COLUMN IF NOT EXISTS draw_pts INT NOT NULL DEFAULT 1`);
+    // New columns for profile-based auth
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS phone TEXT`);
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS preferred_name TEXT`);
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS gender TEXT`);
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS preferred_locations TEXT`);
+    await client.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE`);
+    // Unique index on phone (only for non-null values)
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS players_phone_unique ON players (phone) WHERE phone IS NOT NULL`);
     console.log('✅ Migration complete');
   } catch (err) {
     console.error('Migration failed:', err);
