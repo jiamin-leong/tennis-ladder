@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
-    const { name, start_date, end_date, allow_join, points_system, whatsapp_group } =
+    const { name, start_date, end_date, allow_join, points_system, whatsapp_group, win_pts, loss_pts, draw_pts } =
       req.body;
 
     if (!name || !start_date || !end_date) {
@@ -33,10 +33,21 @@ export default async function handler(req, res) {
              allow_join = $4,
              points_system = $5,
              whatsapp_group = $6,
+             win_pts = $7,
+             loss_pts = $8,
+             draw_pts = $9,
              updated_at = NOW()
          WHERE id = (SELECT id FROM ladder_settings ORDER BY id LIMIT 1)
          RETURNING *`,
-        [name, start_date, end_date, allow_join || 'bottom', points_system || 'standard', whatsapp_group || null]
+        [
+          name, start_date, end_date,
+          allow_join || 'bottom',
+          points_system || 'standard',
+          whatsapp_group || null,
+          win_pts ?? 3,
+          loss_pts ?? 0,
+          draw_pts ?? 1,
+        ]
       );
       return res.status(200).json(rows[0]);
     } catch (err) {

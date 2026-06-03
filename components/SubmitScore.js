@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function SubmitScore({ players, onSubmit }) {
+export default function SubmitScore({ players, settings, onSubmit }) {
   const [p1, setP1] = useState('');
   const [p2, setP2] = useState('');
   const [sets, setSets] = useState([
@@ -25,9 +25,8 @@ export default function SubmitScore({ players, onSubmit }) {
     }
     if (s1 < 2 && s2 < 2) return null;
     const winnerName = s1 > s2 ? players.find(p => String(p.id) === p1)?.name : players.find(p => String(p.id) === p2)?.name;
-    const setsPlayed = s1 + s2;
-    const winPts = setsPlayed === 2 ? 3 : 2;
-    const losPts = setsPlayed === 3 ? 1 : 0;
+    const winPts = settings?.win_pts ?? 3;
+    const losPts = settings?.loss_pts ?? 0;
     return { winnerName, winPts, losPts };
   }
 

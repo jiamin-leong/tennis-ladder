@@ -6,8 +6,10 @@ export default function Settings({ settings, onSave }) {
     start_date: '',
     end_date: '',
     allow_join: 'bottom',
-    points_system: 'standard',
     whatsapp_group: '',
+    win_pts: 3,
+    loss_pts: 0,
+    draw_pts: 1,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -19,8 +21,10 @@ export default function Settings({ settings, onSave }) {
         start_date: settings.start_date?.split('T')[0] || '',
         end_date: settings.end_date?.split('T')[0] || '',
         allow_join: settings.allow_join || 'bottom',
-        points_system: settings.points_system || 'standard',
         whatsapp_group: settings.whatsapp_group || '',
+        win_pts: settings.win_pts ?? 3,
+        loss_pts: settings.loss_pts ?? 0,
+        draw_pts: settings.draw_pts ?? 1,
       });
     }
   }, [settings]);
@@ -62,6 +66,10 @@ export default function Settings({ settings, onSave }) {
   const left = daysLeft();
   const prog = progress();
 
+  const fieldStyle = { marginBottom: 12 };
+  const labelStyle = { display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 };
+  const ptsInput = { width: 72, textAlign: 'center', margin: 0 };
+
   return (
     <div>
       <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '1.25rem', marginBottom: 12 }}>
@@ -70,41 +78,76 @@ export default function Settings({ settings, onSave }) {
         </div>
 
         <form onSubmit={handleSave}>
-          <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Ladder name</label>
-          <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ marginBottom: 12 }} />
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Ladder name</label>
+            <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, ...fieldStyle }}>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Start date</label>
+              <label style={labelStyle}>Start date</label>
               <input type="date" value={form.start_date} onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>End date</label>
+              <label style={labelStyle}>End date</label>
               <input type="date" value={form.end_date} onChange={e => setForm(f => ({ ...f, end_date: e.target.value }))} />
             </div>
           </div>
 
-          <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>WhatsApp group name</label>
-          <input type="text" value={form.whatsapp_group} onChange={e => setForm(f => ({ ...f, whatsapp_group: e.target.value }))} placeholder="e.g. Raffles TC Chat" style={{ marginBottom: 12 }} />
+          <div style={fieldStyle}>
+            <label style={labelStyle}>WhatsApp group name</label>
+            <input type="text" value={form.whatsapp_group} onChange={e => setForm(f => ({ ...f, whatsapp_group: e.target.value }))} placeholder="e.g. Raffles TC Chat" />
+          </div>
 
-          <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Allow new players to join</label>
-          <select value={form.allow_join} onChange={e => setForm(f => ({ ...f, allow_join: e.target.value }))} style={{ marginBottom: 12 }}>
-            <option value="yes">Yes — join at current last place</option>
-            <option value="bottom">Yes — always join at the very bottom</option>
-            <option value="no">No — ladder locked after start date</option>
-          </select>
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Allow new players to join</label>
+            <select value={form.allow_join} onChange={e => setForm(f => ({ ...f, allow_join: e.target.value }))}>
+              <option value="yes">Yes — join at current last place</option>
+              <option value="bottom">Yes — always join at the very bottom</option>
+              <option value="no">No — ladder locked after start date</option>
+            </select>
+          </div>
 
-          <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Points system</label>
-          <select value={form.points_system} onChange={e => setForm(f => ({ ...f, points_system: e.target.value }))} style={{ marginBottom: 16 }}>
-            <option value="standard">Standard (3 / 2 / 1 pts)</option>
-            <option value="wins">Wins only (W/L record)</option>
-            <option value="sets">Sets-based (sets won)</option>
-          </select>
+          {/* Points system */}
+          <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '1rem', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+              Points per result
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div style={{ textAlign: 'center' }}>
+                <label style={{ ...labelStyle, textAlign: 'center' }}>Win</label>
+                <input
+                  type="number" min="0" max="99"
+                  value={form.win_pts}
+                  onChange={e => setForm(f => ({ ...f, win_pts: Number(e.target.value) }))}
+                  style={ptsInput}
+                />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <label style={{ ...labelStyle, textAlign: 'center' }}>Loss</label>
+                <input
+                  type="number" min="0" max="99"
+                  value={form.loss_pts}
+                  onChange={e => setForm(f => ({ ...f, loss_pts: Number(e.target.value) }))}
+                  style={ptsInput}
+                />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <label style={{ ...labelStyle, textAlign: 'center' }}>Draw</label>
+                <input
+                  type="number" min="0" max="99"
+                  value={form.draw_pts}
+                  onChange={e => setForm(f => ({ ...f, draw_pts: Number(e.target.value) }))}
+                  style={ptsInput}
+                />
+              </div>
+            </div>
+          </div>
 
           <button
             type="submit"
             disabled={saving}
-            style={{ background: saved ? '#639922' : '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 500, width: '100%', opacity: saving ? 0.7 : 1, transition: 'background 0.3s' }}
+            style={{ background: saved ? '#639922' : '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 500, width: '100%', opacity: saving ? 0.7 : 1, transition: 'background 0.3s', cursor: 'pointer' }}
           >
             {saved ? '✓ Saved!' : saving ? 'Saving…' : 'Save settings'}
           </button>

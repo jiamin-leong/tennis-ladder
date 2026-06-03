@@ -6,9 +6,11 @@ import SubmitScore from '../components/SubmitScore';
 import Players from '../components/Players';
 import Settings from '../components/Settings';
 
-const TABS = ['Leaderboard', 'Matches', 'Submit Score', 'Players', 'Settings'];
+const ADMIN_TABS = ['Leaderboard', 'Matches', 'Players', 'Settings'];
+const PARTICIPANT_TABS = ['Leaderboard', 'Matches', 'Submit Score'];
 
 export default function Home() {
+  const [role, setRole] = useState('participant');
   const [tab, setTab] = useState('Leaderboard');
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
@@ -18,7 +20,7 @@ export default function Home() {
   const fetchAll = useCallback(async () => {
     try {
       const [pRes, mRes, sRes] = await Promise.all([
-        fetch('/api/players'),
+        fetch('/api/players?status=all'),
         fetch('/api/matches'),
         fetch('/api/settings'),
       ]);
@@ -33,6 +35,14 @@ export default function Home() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  function handleRoleChange(newRole) {
+    setRole(newRole);
+    setTab('Leaderboard');
+  }
+
+  const tabs = role === 'admin' ? ADMIN_TABS : PARTICIPANT_TABS;
+  const approvedPlayers = players.filter(p => p.status === 'approved');
 
   const ladderName = settings?.name || 'Tennis Ladder';
 
@@ -66,23 +76,45 @@ export default function Home() {
         <div style={{ maxWidth: 640, margin: '0 auto', padding: '1.5rem 1rem' }}>
 
           {/* Header banner */}
-          <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {ladderName}</div>
-              {formatDateRange() && (
-                <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>{formatDateRange()}</div>
-              )}
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ display: 'inline-block', background: status.bg, color: status.color, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 6 }}>
+          <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {ladderName}</div>
+                {formatDateRange() && (
+                  <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>{formatDateRange()}</div>
+                )}
+              </div>
+              <div style={{ display: 'inline-block', background: status.bg, color: status.color, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 6, marginTop: 2 }}>
                 ● {status.label}
               </div>
+            </div>
+
+            {/* Role switcher */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, color: '#3B6D11', fontWeight: 500 }}>View as:</span>
+              <select
+                value={role}
+                onChange={e => handleRoleChange(e.target.value)}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#27500A',
+                  background: 'white',
+                  border: '1px solid #A8D57A',
+                  borderRadius: 6,
+                  padding: '3px 8px',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="participant">Participant</option>
+                <option value="admin">Admin</option>
+              </select>
             </div>
           </div>
 
           {/* Navigation tabs */}
           <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid #E5E7EB', marginBottom: 20, overflowX: 'auto' }}>
-            {TABS.map(t => (
+            {tabs.map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -111,10 +143,10 @@ export default function Home() {
             </div>
           ) : (
             <>
-              {tab === 'Leaderboard' && <Leaderboard players={players} matchCount={matches.length} />}
+              {tab === 'Leaderboard' && <Leaderboard players={approvedPlayers} matchCount={matches.length} />}
               {tab === 'Matches' && <Matches matches={matches} />}
-              {tab === 'Submit Score' && <SubmitScore players={players} onSubmit={fetchAll} />}
-              {tab === 'Players' && <Players players={players} onPlayersChange={fetchAll} />}
+              {tab === 'Submit Score' && <SubmitScore players={approvedPlayers} settings={settings} onSubmit={fetchAll} />}
+              {tab === 'Players' && <Players players={players} onPlayersChange={fetchAll} isAdmin={role === 'admin'} />}
               {tab === 'Settings' && <Settings settings={settings} onSave={fetchAll} />}
             </>
           )}

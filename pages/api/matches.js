@@ -40,8 +40,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Players must be different' });
     }
 
-    const { winnerId, loserId, winnerPts, loserPts, scoreString, setsPlayed } =
+    const settingsRes = await pool.query(
+      'SELECT win_pts, loss_pts FROM ladder_settings ORDER BY id LIMIT 1'
+    );
+    const { win_pts = 3, loss_pts = 0 } = settingsRes.rows[0] || {};
+
+    const { winnerId, loserId, scoreString, setsPlayed } =
       calculateMatch({ p1Id, p2Id, sets });
+    const winnerPts = win_pts;
+    const loserPts = loss_pts;
 
     const client = await pool.connect();
     try {
