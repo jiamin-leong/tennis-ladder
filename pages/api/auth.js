@@ -25,8 +25,7 @@ export default async function handler(req, res) {
     if (rows.length === 0) return res.status(200).json({ exists: false });
 
     const player = rows[0];
-    // Admin accounts must always go through the PIN flow
-    if (player.is_admin) return res.status(200).json({ exists: true, requiresAdminPin: true });
+    if (player.is_admin) return res.status(200).json({ exists: true, requiresAdminPin: true, player });
 
     return res.status(200).json({ exists: true, player });
   } catch (err) {

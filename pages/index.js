@@ -33,6 +33,7 @@ export default function Home() {
   const [currentLadder, setCurrentLadder] = useState(null);
   const [loadingData, setLoadingData] = useState(false);
   const [appName, setAppName] = useState('Court Ladder');
+  const [viewMode, setViewMode] = useState('player'); // 'admin' | 'player'
 
   // Load app name even before login
   useEffect(() => {
@@ -47,8 +48,14 @@ export default function Home() {
     try {
       const saved = localStorage.getItem(SESSION_KEY);
       if (saved) {
-        const { phone, player } = JSON.parse(saved);
-        verifySession(phone, player);
+        const { phone, player, viewMode: savedViewMode } = JSON.parse(saved);
+        // Never auto-restore admin sessions
+        if (savedViewMode === 'admin') {
+          localStorage.removeItem(SESSION_KEY);
+          setScreen('login');
+          return;
+        }
+        verifySession(phone, player, savedViewMode ?? 'player');
       } else {
         setScreen('login');
       }
@@ -57,12 +64,7 @@ export default function Home() {
     }
   }, []);
 
-  async function verifySession(phone, fallback) {
-    if (fallback?.is_admin) {
-      localStorage.removeItem(SESSION_KEY);
-      setScreen('login');
-      return;
-    }
+  async function verifySession(phone, fallback, mode) {
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
@@ -70,23 +72,25 @@ export default function Home() {
         body: JSON.stringify({ phone }),
       });
       const data = await res.json();
-      if (res.ok && data.exists && !data.requiresAdminPin) {
-        enterApp(data.player, phone);
+      if (res.ok && data.exists) {
+        enterApp(data.player, phone, mode);
       } else {
         localStorage.removeItem(SESSION_KEY);
         setScreen('login');
       }
     } catch {
-      if (fallback && !fallback.is_admin) enterApp(fallback, phone);
+      if (fallback) enterApp(fallback, phone, mode);
       else setScreen('login');
     }
   }
 
-  function enterApp(player, phone) {
-    const session = { phone, player };
+  function enterApp(player, phone, mode) {
+    const resolvedMode = mode ?? 'player';
+    const session = { phone, player, viewMode: resolvedMode };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     setCurrentPlayer({ ...player, phone });
-    if (player.is_admin) {
+    setViewMode(resolvedMode);
+    if (resolvedMode === 'admin') {
       setScreen('admin-home');
     } else if (player.status === 'approved') {
       setScreen('ladder-select');
@@ -116,11 +120,8 @@ export default function Home() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Something went wrong');
-    if (data.exists && data.requiresAdminPin) {
-      setPendingPhone(phone);
-      setScreen('admin-pin');
-    } else if (data.exists) {
-      enterApp(data.player, phone);
+    if (data.exists) {
+      enterApp(data.player, phone, 'player');
     } else {
       setPendingPhone(phone);
       setScreen('register');
@@ -135,7 +136,7 @@ export default function Home() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Admin login failed');
-    enterApp(data.player, phone);
+    enterApp(data.player, phone, 'admin');
   }
 
   function handleRegistered(player) {
@@ -195,7 +196,7 @@ export default function Home() {
   function enterLadder(ladder) {
     setCurrentLadder(ladder);
     setTab('Leaderboard');
-    if (currentPlayer?.is_admin) {
+    if (viewMode === 'admin') {
       setScreen('admin');
     } else {
       setScreen('participant');
@@ -207,7 +208,7 @@ export default function Home() {
     setPlayers([]);
     setMatches([]);
     setSettings(null);
-    if (currentPlayer?.is_admin) {
+    if (viewMode === 'admin') {
       setScreen('admin-home');
     } else {
       setScreen('ladder-select');
