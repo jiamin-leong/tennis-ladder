@@ -1,4 +1,4 @@
-export default function Matches({ matches, settings }) {
+export default function Matches({ matches, settings, isAdmin, onMatchDeleted }) {
   function formatDate(iso) {
     if (!iso) return '';
     return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
@@ -7,6 +7,16 @@ export default function Matches({ matches, settings }) {
   const winPts  = settings?.win_pts  ?? '—';
   const lossPts = settings?.loss_pts ?? '—';
   const drawPts = settings?.draw_pts ?? '—';
+
+  async function deleteMatch(matchId) {
+    if (!confirm('Delete this match? Points and records will be reversed.')) return;
+    const res = await fetch('/api/matches', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId }),
+    });
+    if (res.ok) onMatchDeleted?.();
+  }
 
   return (
     <div>
@@ -67,6 +77,18 @@ export default function Matches({ matches, settings }) {
               {m.court && <span style={{ display: 'block' }}>{m.court}</span>}
               {formatDate(m.played_at)}
             </div>
+            {isAdmin && (
+              <button
+                onClick={() => deleteMatch(m.id)}
+                style={{
+                  flexShrink: 0, background: '#FCEBEB', color: '#A32D2D',
+                  border: '1px solid #FECACA', borderRadius: 6,
+                  padding: '4px 10px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                }}
+              >
+                Delete
+              </button>
+            )}
           </div>
         ))}
       </div>

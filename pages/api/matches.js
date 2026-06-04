@@ -157,6 +157,57 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', ['GET', 'POST']);
+  if (req.method === 'DELETE') {
+    const { matchId } = req.body;
+    if (!matchId) return res.status(400).json({ error: 'matchId required' });
+
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query(
+        `SELECT winner_id, winner_partner_id, loser_id, loser_partner_id,
+                winner_pts, loser_pts, score, ladder_id
+         FROM matches WHERE id = $1`,
+        [matchId]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'Match not found' });
+
+      const m = rows[0];
+      const isDraw = m.score === 'Draw';
+      const winnerIds = [m.winner_id, m.winner_partner_id].filter(Boolean);
+      const loserIds  = [m.loser_id,  m.loser_partner_id].filter(Boolean);
+
+      await client.query('BEGIN');
+
+      // Reverse points for winners
+      for (const pid of winnerIds) {
+        await client.query(
+          `UPDATE player_ladders SET points = points - $1${isDraw ? '' : ', wins = wins - 1'}
+           WHERE ladder_id = $2 AND player_id = $3`,
+          [m.winner_pts, m.ladder_id, pid]
+        );
+      }
+      // Reverse points for losers
+      for (const pid of loserIds) {
+        await client.query(
+          `UPDATE player_ladders SET points = points - $1${isDraw ? '' : ', losses = losses - 1'}
+           WHERE ladder_id = $2 AND player_id = $3`,
+          [m.loser_pts, m.ladder_id, pid]
+        );
+      }
+
+      await client.query('DELETE FROM matches WHERE id = $1', [matchId]);
+      await client.query('COMMIT');
+
+      return res.status(200).json({ deleted: matchId });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('DELETE /api/matches error:', err);
+      return res.status(500).json({ error: 'Failed to delete match' });
+    } finally {
+      client.release();
+    }
+  }
+
+  res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
   return res.status(405).json({ error: `Method ${req.method} not allowed` });
 }

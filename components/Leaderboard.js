@@ -37,7 +37,7 @@ export default function Leaderboard({ players, matchCount, currentPlayerId }) {
       {/* Current player's position callout */}
       {myRank >= 0 && (
         <div style={{ background: '#EAF3DE', border: '1px solid #A8D57A', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#27500A', fontWeight: 500 }}>
-          🎾 You are ranked <strong>#{myRank + 1}</strong> with <strong>{players[myRank].points} pts</strong>
+          You are ranked <strong>#{myRank + 1}</strong> with <strong>{players[myRank].points} pts</strong>
         </div>
       )}
 

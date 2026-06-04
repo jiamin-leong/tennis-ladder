@@ -16,7 +16,7 @@ import LadderSelect from '../components/LadderSelect';
 
 const ADMIN_TABS = ['Leaderboard', 'Matches', 'Players', 'Settings'];
 const PARTICIPANT_TABS = ['Leaderboard', 'My Stats', 'Submit Score', 'FAQ'];
-const SESSION_KEY = 'tennis_ladder_session';
+const SESSION_KEY = 'court_ladder_session';
 
 // Screens: 'loading' | 'login' | 'register' | 'pending' | 'rejected'
 //          | 'admin-home' | 'admin' | 'ladder-select' | 'participant'
@@ -154,17 +154,29 @@ export default function Home() {
     if (!ladder) return;
     setLoadingData(true);
     try {
-      const [pRes, mRes] = await Promise.all([
+      const [pRes, mRes, lRes] = await Promise.all([
         fetch(`/api/players?ladderId=${ladder.id}${isAdmin ? '&status=all' : ''}`),
         fetch(`/api/matches?ladderId=${ladder.id}`),
+        fetch('/api/ladders'),
       ]);
       if (pRes.ok) setPlayers(await pRes.json());
       if (mRes.ok) setMatches(await mRes.json());
-      setSettings(ladder);
+      if (lRes.ok) {
+        const allLadders = await lRes.json();
+        setLadders(allLadders);
+        const fresh = allLadders.find(l => l.id === ladder.id) || ladder;
+        setSettings(fresh);
+        // Update currentLadder name/fields without triggering the effect loop
+        setCurrentLadder(prev => prev?.id === fresh.id ? fresh : prev);
+      } else {
+        setSettings(ladder);
+      }
     } finally {
       setLoadingData(false);
     }
   }, []);
+
+  const currentLadderId = currentLadder?.id;
 
   // On screen change, load the right data
   useEffect(() => {
@@ -172,12 +184,13 @@ export default function Home() {
       fetchLadders();
     } else if (screen === 'ladder-select' && currentPlayer) {
       fetchLadders(currentPlayer.id);
-    } else if (screen === 'admin' && currentLadder) {
-      fetchLadderData(currentLadder, true);
-    } else if (screen === 'participant' && currentLadder) {
-      fetchLadderData(currentLadder, false);
+    } else if (screen === 'admin' && currentLadderId) {
+      fetchLadderData({ id: currentLadderId }, true);
+    } else if (screen === 'participant' && currentLadderId) {
+      fetchLadderData({ id: currentLadderId }, false);
     }
-  }, [screen, currentLadder, currentPlayer, fetchLadders, fetchLadderData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, currentLadderId, currentPlayer?.id]);
 
   function enterLadder(ladder) {
     setCurrentLadder(ladder);
@@ -338,21 +351,25 @@ export default function Home() {
       <div style={{ minHeight: '100vh', background: '#F3F4F6' }}>
         <div style={{ maxWidth: 640, margin: '0 auto', padding: '1.5rem 1rem' }}>
 
+          {/* Back button */}
+          <button
+            onClick={exitLadder}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'white', border: '1px solid #D1D5DB', borderRadius: 8,
+              padding: '7px 14px', fontSize: 13, fontWeight: 500, color: '#374151',
+              cursor: 'pointer', marginBottom: 12,
+            }}
+          >
+            ← All ladders
+          </button>
+
           {/* Header */}
           <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <button
-                onClick={exitLadder}
-                style={{ background: 'none', border: 'none', color: '#3B6D11', fontSize: 18, cursor: 'pointer', padding: '0 4px', lineHeight: 1 }}
-                title="Back to ladders"
-              >
-                ‹
-              </button>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🏆 {ladderName}</div>
-                <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>
-                  {isAdmin ? '🔧 Admin view' : `Welcome, ${displayName}`}
-                </div>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🏆 {ladderName}</div>
+              <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>
+                {isAdmin ? '🔧 Admin view' : `Welcome, ${displayName}`}
               </div>
             </div>
             <button
@@ -394,7 +411,7 @@ export default function Home() {
                   currentPlayerId={isAdmin ? null : currentPlayer?.id}
                 />
               )}
-              {tab === 'Matches'      && <Matches matches={matches} settings={settings} />}
+              {tab === 'Matches'      && <Matches matches={matches} settings={settings} isAdmin={isAdmin} onMatchDeleted={() => fetchLadderData(currentLadder, true)} />}
               {tab === 'My Stats'     && (
                 <MyStats
                   currentPlayer={currentPlayer}
