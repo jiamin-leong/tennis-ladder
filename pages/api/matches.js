@@ -4,50 +4,36 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { playerId, ladderId } = req.query;
     try {
+      const baseSelect = `
+          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
+            w.id  AS winner_id,         COALESCE(w.preferred_name,  w.name)  AS winner_name,
+            wp.id AS winner_partner_id, COALESCE(wp.preferred_name, wp.name) AS winner_partner_name,
+            l.id  AS loser_id,          COALESCE(l.preferred_name,  l.name)  AS loser_name,
+            lp.id AS loser_partner_id,  COALESCE(lp.preferred_name, lp.name) AS loser_partner_name
+          FROM matches m
+          JOIN players w ON m.winner_id = w.id
+          JOIN players l ON m.loser_id  = l.id
+          LEFT JOIN players wp ON m.winner_partner_id = wp.id
+          LEFT JOIN players lp ON m.loser_partner_id  = lp.id`;
+
       let query, params;
 
       if (playerId && ladderId) {
-        query = `
-          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
-            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
-            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
-          FROM matches m
-          JOIN players w ON m.winner_id = w.id
-          JOIN players l ON m.loser_id  = l.id
-          WHERE m.ladder_id = $1 AND (w.id = $2 OR l.id = $2)
+        query = baseSelect + `
+          WHERE m.ladder_id = $1
+            AND (w.id = $2 OR l.id = $2 OR wp.id = $2 OR lp.id = $2)
           ORDER BY m.played_at DESC LIMIT 100`;
         params = [ladderId, playerId];
       } else if (ladderId) {
-        query = `
-          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
-            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
-            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
-          FROM matches m
-          JOIN players w ON m.winner_id = w.id
-          JOIN players l ON m.loser_id  = l.id
-          WHERE m.ladder_id = $1
-          ORDER BY m.played_at DESC LIMIT 50`;
+        query = baseSelect + ` WHERE m.ladder_id = $1 ORDER BY m.played_at DESC LIMIT 50`;
         params = [ladderId];
       } else if (playerId) {
-        query = `
-          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
-            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
-            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
-          FROM matches m
-          JOIN players w ON m.winner_id = w.id
-          JOIN players l ON m.loser_id  = l.id
-          WHERE w.id = $1 OR l.id = $1
+        query = baseSelect + `
+          WHERE w.id = $1 OR l.id = $1 OR wp.id = $1 OR lp.id = $1
           ORDER BY m.played_at DESC LIMIT 100`;
         params = [playerId];
       } else {
-        query = `
-          SELECT m.id, m.score, m.winner_pts, m.loser_pts, m.court, m.played_at,
-            w.id AS winner_id, COALESCE(w.preferred_name, w.name) AS winner_name,
-            l.id AS loser_id,  COALESCE(l.preferred_name, l.name) AS loser_name
-          FROM matches m
-          JOIN players w ON m.winner_id = w.id
-          JOIN players l ON m.loser_id  = l.id
-          ORDER BY m.played_at DESC LIMIT 50`;
+        query = baseSelect + ` ORDER BY m.played_at DESC LIMIT 50`;
         params = [];
       }
 
@@ -60,7 +46,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { p1Id, p2Id, winnerId, score, court, playedAt, ladderId } = req.body;
+    const { p1Id, p1PartnerId, p2Id, p2PartnerId, winnerId, score, court, playedAt, ladderId } = req.body;
 
     if (!p1Id || !p2Id || !winnerId || !ladderId) {
       return res.status(400).json({ error: 'p1Id, p2Id, winnerId, and ladderId are required' });
@@ -68,20 +54,40 @@ export default async function handler(req, res) {
     if (p1Id === p2Id) {
       return res.status(400).json({ error: 'Players must be different' });
     }
+
     const isDraw = winnerId === 'draw';
-    if (!isDraw && winnerId !== p1Id && winnerId !== p2Id) {
-      return res.status(400).json({ error: 'winnerId must be one of the two players or "draw"' });
+    // For doubles, winnerId is 'p1side' or 'p2side'; for singles it's the actual player id
+    const isDoublesWin = winnerId === 'p1side' || winnerId === 'p2side';
+    if (!isDraw && !isDoublesWin && winnerId !== p1Id && winnerId !== p2Id) {
+      return res.status(400).json({ error: 'Invalid winnerId' });
     }
 
     const ladderRes = await pool.query(
-      'SELECT win_pts, loss_pts, draw_pts FROM ladders WHERE id = $1',
+      'SELECT win_pts, loss_pts, draw_pts, format FROM ladders WHERE id = $1',
       [ladderId]
     );
     if (ladderRes.rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });
     const { win_pts = 3, loss_pts = 0, draw_pts = 1 } = ladderRes.rows[0];
 
-    const resolvedWinnerId = isDraw ? p1Id : winnerId;
-    const resolvedLoserId  = isDraw ? p2Id : (winnerId === p1Id ? p2Id : p1Id);
+    // Resolve who is winner/loser
+    let resolvedWinnerId, resolvedWinnerPartnerId, resolvedLoserId, resolvedLoserPartnerId;
+    if (isDraw) {
+      resolvedWinnerId = p1Id;
+      resolvedWinnerPartnerId = p1PartnerId || null;
+      resolvedLoserId = p2Id;
+      resolvedLoserPartnerId = p2PartnerId || null;
+    } else if (isDoublesWin ? winnerId === 'p1side' : (winnerId === p1Id || winnerId === String(p1Id))) {
+      resolvedWinnerId = p1Id;
+      resolvedWinnerPartnerId = p1PartnerId || null;
+      resolvedLoserId = p2Id;
+      resolvedLoserPartnerId = p2PartnerId || null;
+    } else {
+      resolvedWinnerId = p2Id;
+      resolvedWinnerPartnerId = p2PartnerId || null;
+      resolvedLoserId = p1Id;
+      resolvedLoserPartnerId = p1PartnerId || null;
+    }
+
     const winnerPts = isDraw ? draw_pts : win_pts;
     const loserPts  = isDraw ? draw_pts : loss_pts;
     const scoreStr  = score?.trim() || (isDraw ? 'Draw' : '—');
@@ -91,39 +97,45 @@ export default async function handler(req, res) {
       await client.query('BEGIN');
 
       const { rows } = await client.query(
-        `INSERT INTO matches (winner_id, loser_id, score, sets_played, winner_pts, loser_pts, court, played_at, ladder_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `INSERT INTO matches (winner_id, winner_partner_id, loser_id, loser_partner_id,
+           score, sets_played, winner_pts, loser_pts, court, played_at, ladder_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING id`,
         [
-          resolvedWinnerId,
-          resolvedLoserId,
-          scoreStr,
-          0,
-          winnerPts,
-          loserPts,
+          resolvedWinnerId, resolvedWinnerPartnerId,
+          resolvedLoserId,  resolvedLoserPartnerId,
+          scoreStr, 0, winnerPts, loserPts,
           court?.trim() || null,
           playedAt ? new Date(playedAt) : new Date(),
           ladderId,
         ]
       );
 
+      // Update points for all players involved
+      const winnerIds = [resolvedWinnerId, resolvedWinnerPartnerId].filter(Boolean);
+      const loserIds  = [resolvedLoserId,  resolvedLoserPartnerId].filter(Boolean);
+
       if (isDraw) {
-        await client.query(
-          `UPDATE player_ladders SET points = points + $1
-           WHERE ladder_id = $2 AND player_id IN ($3, $4)`,
-          [draw_pts, ladderId, p1Id, p2Id]
-        );
+        const allIds = [...winnerIds, ...loserIds];
+        for (const pid of allIds) {
+          await client.query(
+            `UPDATE player_ladders SET points = points + $1 WHERE ladder_id = $2 AND player_id = $3`,
+            [draw_pts, ladderId, pid]
+          );
+        }
       } else {
-        await client.query(
-          `UPDATE player_ladders SET points = points + $1, wins = wins + 1
-           WHERE ladder_id = $2 AND player_id = $3`,
-          [win_pts, ladderId, resolvedWinnerId]
-        );
-        await client.query(
-          `UPDATE player_ladders SET points = points + $1, losses = losses + 1
-           WHERE ladder_id = $2 AND player_id = $3`,
-          [loss_pts, ladderId, resolvedLoserId]
-        );
+        for (const pid of winnerIds) {
+          await client.query(
+            `UPDATE player_ladders SET points = points + $1, wins = wins + 1 WHERE ladder_id = $2 AND player_id = $3`,
+            [win_pts, ladderId, pid]
+          );
+        }
+        for (const pid of loserIds) {
+          await client.query(
+            `UPDATE player_ladders SET points = points + $1, losses = losses + 1 WHERE ladder_id = $2 AND player_id = $3`,
+            [loss_pts, ladderId, pid]
+          );
+        }
       }
 
       await client.query('COMMIT');

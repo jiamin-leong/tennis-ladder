@@ -31,17 +31,18 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts } = req.body;
+    const { name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format } = req.body;
     if (!name?.trim() || !start_date || !end_date) {
       return res.status(400).json({ error: 'name, start_date, end_date required' });
     }
     try {
       const { rows } = await pool.query(
-        `INSERT INTO ladders (name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+        `INSERT INTO ladders (name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [name.trim(), start_date, end_date,
          allow_join || 'bottom',
-         win_pts ?? 3, loss_pts ?? 0, draw_pts ?? 1]
+         win_pts ?? 3, loss_pts ?? 0, draw_pts ?? 1,
+         format === 'doubles' ? 'doubles' : 'singles']
       );
       return res.status(201).json(rows[0]);
     } catch (err) {
@@ -51,14 +52,15 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
-    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts } = req.body;
+    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format } = req.body;
     if (!id) return res.status(400).json({ error: 'id required' });
     try {
       const { rows } = await pool.query(
         `UPDATE ladders SET name=$1, start_date=$2, end_date=$3, allow_join=$4,
-         win_pts=$5, loss_pts=$6, draw_pts=$7, updated_at=NOW()
-         WHERE id=$8 RETURNING *`,
-        [name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, id]
+         win_pts=$5, loss_pts=$6, draw_pts=$7, format=$8, updated_at=NOW()
+         WHERE id=$9 RETURNING *`,
+        [name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts,
+         format === 'doubles' ? 'doubles' : 'singles', id]
       );
       if (rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });
       return res.status(200).json(rows[0]);

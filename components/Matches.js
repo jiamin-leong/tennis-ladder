@@ -49,9 +49,13 @@ export default function Matches({ matches, settings }) {
             borderBottom: i < matches.length - 1 ? '1px solid #F3F4F6' : 'none',
           }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ fontWeight: 500 }}>{m.winner_name}</span>
+              <span style={{ fontWeight: 500 }}>
+                {m.winner_name}{m.winner_partner_name ? ` & ${m.winner_partner_name}` : ''}
+              </span>
               <span style={{ color: '#9CA3AF', margin: '0 6px', fontSize: 13 }}>def.</span>
-              <span style={{ color: '#6B7280' }}>{m.loser_name}</span>
+              <span style={{ color: '#6B7280' }}>
+                {m.loser_name}{m.loser_partner_name ? ` & ${m.loser_partner_name}` : ''}
+              </span>
             </div>
             <div style={{ fontSize: 13, color: '#6B7280', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{m.score}</div>
             <div style={{ flexShrink: 0 }}>

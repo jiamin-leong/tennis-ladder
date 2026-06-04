@@ -23,7 +23,7 @@ function CreateLadderModal({ onClose, onCreated }) {
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     name: '', start_date: today, end_date: '',
-    win_pts: 3, loss_pts: 0, draw_pts: 1,
+    win_pts: 3, loss_pts: 0, draw_pts: 1, format: 'singles',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -60,6 +60,23 @@ function CreateLadderModal({ onClose, onCreated }) {
         <form onSubmit={handleSubmit}>
           <label style={labelStyle}>Ladder name</label>
           <input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Summer 2026" style={{ marginBottom: 12 }} />
+
+          <label style={labelStyle}>Format</label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            {['singles', 'doubles'].map(f => (
+              <button
+                key={f} type="button" onClick={() => set('format', f)}
+                style={{
+                  flex: 1, padding: '9px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
+                  border: form.format === f ? '2px solid #3B6D11' : '2px solid #E5E7EB',
+                  background: form.format === f ? '#EAF3DE' : 'white',
+                  color: form.format === f ? '#27500A' : '#6B7280',
+                }}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
             <div>
@@ -163,6 +180,7 @@ function LadderCard({ ladder, onSelect }) {
         <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 4 }}>{ladder.name}</div>
         <div style={{ fontSize: 12, color: '#6B7280' }}>
           {formatDate(ladder.start_date)} – {formatDate(ladder.end_date)}
+          {' · '}{ladder.format === 'doubles' ? 'Doubles' : 'Singles'}
           {' · '}{ladder.player_count} player{ladder.player_count !== 1 ? 's' : ''}
           {ladder.pending_count > 0 && <span style={{ color: '#D97706', fontWeight: 600 }}> · {ladder.pending_count} pending</span>}
         </div>

@@ -92,6 +92,7 @@ export default function LadderSelect({ ladders, playerId, onSelectLadder }) {
           <div style={{ fontSize: 15, fontWeight: 600, color: '#111827', marginBottom: 3 }}>{ladder.name}</div>
           <div style={{ fontSize: 12, color: '#6B7280' }}>
             {formatDate(ladder.start_date)} – {formatDate(ladder.end_date)}
+            {' · '}{ladder.format === 'doubles' ? 'Doubles' : 'Singles'}
             {' · '}{ladder.player_count} player{ladder.player_count !== 1 ? 's' : ''}
           </div>
         </div>

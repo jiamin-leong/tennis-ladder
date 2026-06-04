@@ -1,9 +1,15 @@
 import { useState } from 'react';
 
 export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
-  const [p1, setP1] = useState('');
-  const [p2, setP2] = useState('');
-  const [winner, setWinner] = useState(''); // p1 id | p2 id | 'draw'
+  const isDoubles = settings?.format === 'doubles';
+
+  // Singles: p1, p2
+  // Doubles: p1a, p1b (team 1), p2a, p2b (team 2)
+  const [p1a, setP1a] = useState('');
+  const [p1b, setP1b] = useState('');
+  const [p2a, setP2a] = useState('');
+  const [p2b, setP2b] = useState('');
+  const [winner, setWinner] = useState(''); // singles: player id | doubles: 'p1side' | 'p2side' | 'draw'
   const [sets, setSets] = useState([
     { p1: '', p2: '' },
     { p1: '', p2: '' },
@@ -14,16 +20,21 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const player1 = players.find(p => String(p.id) === p1);
-  const player2 = players.find(p => String(p.id) === p2);
-  const bothSelected = p1 && p2 && p1 !== p2;
-
   const winPts  = settings?.win_pts  ?? 3;
   const lossPts = settings?.loss_pts ?? 0;
   const drawPts = settings?.draw_pts ?? 1;
 
-  function handleP1Change(val) { setP1(val); setWinner(''); }
-  function handleP2Change(val) { setP2(val); setWinner(''); }
+  // All selected IDs (to prevent double-picking)
+  const selectedIds = [p1a, p1b, p2a, p2b].filter(Boolean);
+  function isUnavailable(id, exceptSlot) {
+    return selectedIds.filter((_, i) => ['p1a','p1b','p2a','p2b'][i] !== exceptSlot).includes(id);
+  }
+
+  function resetWinner() { setWinner(''); }
+
+  const bothSidesReady = isDoubles
+    ? p1a && p2a  // partners optional — allow 1v2 or 2v1 etc; minimum one each side
+    : p1a && p2a && p1a !== p2a;
 
   function updateSet(i, side, val) {
     setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [side]: val } : s));
@@ -36,40 +47,61 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
       .join(', ') || '—';
   }
 
+  function teamLabel(side) {
+    if (!isDoubles) return null;
+    const a = side === 1 ? p1a : p2a;
+    const b = side === 1 ? p1b : p2b;
+    const nameA = players.find(p => String(p.id) === a)?.name || '';
+    const nameB = players.find(p => String(p.id) === b)?.name || '';
+    return nameB ? `${nameA} & ${nameB}` : nameA;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (!p1 || !p2) return setError('Please select both players.');
-    if (p1 === p2)  return setError('Players must be different.');
-    if (!winner)    return setError('Please select who won.');
+
+    if (!p1a || !p2a) return setError('Please select at least one player per side.');
+    if (!winner)       return setError('Please select who won.');
     if (sets[0].p1 === '' || sets[0].p2 === '')
       return setError('Please enter the Set 1 score.');
 
+    if (isDoubles && p1a === p2a) return setError('Players must be different.');
+    if (!isDoubles && p1a === p2a) return setError('Players must be different.');
+
     setLoading(true);
     try {
+      const body = {
+        p1Id: Number(p1a),
+        p2Id: Number(p2a),
+        winnerId: winner,
+        score: buildScoreString(),
+        court,
+        playedAt,
+        ladderId: ladderId ? Number(ladderId) : undefined,
+      };
+      if (isDoubles) {
+        if (p1b) body.p1PartnerId = Number(p1b);
+        if (p2b) body.p2PartnerId = Number(p2b);
+      } else {
+        // Singles: winnerId is an actual player id or 'draw'
+        // winner state holds the player id string or 'draw'
+      }
+
       const res = await fetch('/api/matches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          p1Id: Number(p1),
-          p2Id: Number(p2),
-          winnerId: winner === 'draw' ? 'draw' : Number(winner),
-          score: buildScoreString(),
-          court,
-          playedAt,
-          ladderId: ladderId ? Number(ladderId) : undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to submit');
 
-      const winnerPlayer = winner === 'draw' ? null : players.find(p => String(p.id) === winner);
       const msg = winner === 'draw'
-        ? `✅ Draw recorded! Both players get +${drawPts} pts`
-        : `✅ Match recorded!\n${winnerPlayer?.preferred_name || winnerPlayer?.name} wins · +${winPts} pts`;
+        ? `✅ Draw recorded! All players get +${drawPts} pts`
+        : `✅ Match recorded! Winners get +${winPts} pts`;
       alert(msg);
 
-      setP1(''); setP2(''); setWinner(''); setCourt('');
+      setP1a(''); setP1b(''); setP2a(''); setP2b('');
+      setWinner(''); setCourt('');
       setSets([{ p1: '', p2: '' }, { p1: '', p2: '' }, { p1: '', p2: '' }]);
       onSubmit?.();
     } catch (err) {
@@ -80,6 +112,22 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
   }
 
   const labelStyle = { display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 };
+
+  function PlayerSelect({ value, onChange, label, slot }) {
+    return (
+      <div>
+        <label style={labelStyle}>{label}</label>
+        <select value={value} onChange={e => { onChange(e.target.value); resetWinner(); }}>
+          <option value="">Select…</option>
+          {players.map(p => (
+            <option key={p.id} value={p.id} disabled={isUnavailable(String(p.id), slot)}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  }
 
   function WinnerBtn({ value, label, pts }) {
     const selected = winner === value;
@@ -95,11 +143,14 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
           color: selected ? '#27500A' : '#6B7280',
         }}
       >
-        <div style={{ marginBottom: 2 }}>{label}</div>
+        <div style={{ marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
         <div style={{ fontSize: 11, fontWeight: 400, color: selected ? '#3B6D11' : '#9CA3AF' }}>+{pts} pts</div>
       </button>
     );
   }
+
+  const p1Player = players.find(p => String(p.id) === p1a);
+  const p2Player = players.find(p => String(p.id) === p2a);
 
   return (
     <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '1.25rem' }}>
@@ -109,39 +160,44 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
 
       <form onSubmit={handleSubmit}>
         {/* Player selectors */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <div>
-            <label style={labelStyle}>Player 1</label>
-            <select value={p1} onChange={e => handleP1Change(e.target.value)}>
-              <option value="">Select…</option>
-              {players.map(p => (
-                <option key={p.id} value={p.id} disabled={String(p.id) === p2}>
-                  {p.preferred_name || p.name}
-                </option>
-              ))}
-            </select>
+        {isDoubles ? (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Team 1</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <PlayerSelect value={p1a} onChange={setP1a} label="Player" slot="p1a" />
+              <PlayerSelect value={p1b} onChange={setP1b} label={<>Partner <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(opt.)</span></>} slot="p1b" />
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Team 2</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <PlayerSelect value={p2a} onChange={setP2a} label="Player" slot="p2a" />
+              <PlayerSelect value={p2b} onChange={setP2b} label={<>Partner <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(opt.)</span></>} slot="p2b" />
+            </div>
           </div>
-          <div>
-            <label style={labelStyle}>Player 2</label>
-            <select value={p2} onChange={e => handleP2Change(e.target.value)}>
-              <option value="">Select…</option>
-              {players.map(p => (
-                <option key={p.id} value={p.id} disabled={String(p.id) === p1}>
-                  {p.preferred_name || p.name}
-                </option>
-              ))}
-            </select>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <PlayerSelect value={p1a} onChange={setP1a} label="Player 1" slot="p1a" />
+            <PlayerSelect value={p2a} onChange={setP2a} label="Player 2" slot="p2a" />
           </div>
-        </div>
+        )}
 
-        {/* Who won — shown once both players are selected */}
-        {bothSelected && (
+        {/* Who won */}
+        {bothSidesReady && (
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Who won?</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              <WinnerBtn value={p1} label={player1?.preferred_name || player1?.name} pts={winPts} />
-              <WinnerBtn value="draw" label="Draw" pts={drawPts} />
-              <WinnerBtn value={p2} label={player2?.preferred_name || player2?.name} pts={winPts} />
+              {isDoubles ? (
+                <>
+                  <WinnerBtn value="p1side" label={teamLabel(1) || 'Team 1'} pts={winPts} />
+                  <WinnerBtn value="draw"   label="Draw"                      pts={drawPts} />
+                  <WinnerBtn value="p2side" label={teamLabel(2) || 'Team 2'} pts={winPts} />
+                </>
+              ) : (
+                <>
+                  <WinnerBtn value={p1a}    label={p1Player?.name || 'Player 1'} pts={winPts} />
+                  <WinnerBtn value="draw"   label="Draw"                          pts={drawPts} />
+                  <WinnerBtn value={p2a}    label={p2Player?.name || 'Player 2'} pts={winPts} />
+                </>
+              )}
             </div>
           </div>
         )}
@@ -150,43 +206,30 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}>Set scores</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sets.map((s, i) => {
-              const isRequired = i === 0;
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 13, color: '#6B7280', minWidth: 44 }}>
-                    Set {i + 1}
-                    {isRequired
-                      ? <span style={{ color: '#A32D2D', marginLeft: 2 }}>*</span>
-                      : <span style={{ color: '#9CA3AF', fontSize: 11, marginLeft: 4 }}>opt.</span>
-                    }
-                  </span>
-                  <input
-                    type="number" min="0" max="99"
-                    value={s.p1} placeholder="0"
-                    onChange={e => updateSet(i, 'p1', e.target.value)}
-                    style={{
-                      width: 64, textAlign: 'center', margin: 0,
-                      fontSize: 22, fontWeight: 600, padding: '10px 6px',
-                      border: '1.5px solid #D1D5DB', borderRadius: 10,
-                      MozAppearance: 'textfield',
-                    }}
-                  />
-                  <span style={{ fontSize: 18, color: '#9CA3AF', fontWeight: 300 }}>–</span>
-                  <input
-                    type="number" min="0" max="99"
-                    value={s.p2} placeholder="0"
-                    onChange={e => updateSet(i, 'p2', e.target.value)}
-                    style={{
-                      width: 64, textAlign: 'center', margin: 0,
-                      fontSize: 22, fontWeight: 600, padding: '10px 6px',
-                      border: '1.5px solid #D1D5DB', borderRadius: 10,
-                      MozAppearance: 'textfield',
-                    }}
-                  />
-                </div>
-              );
-            })}
+            {sets.map((s, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 13, color: '#6B7280', minWidth: 44 }}>
+                  Set {i + 1}
+                  {i === 0
+                    ? <span style={{ color: '#A32D2D', marginLeft: 2 }}>*</span>
+                    : <span style={{ color: '#9CA3AF', fontSize: 11, marginLeft: 4 }}>opt.</span>
+                  }
+                </span>
+                <input
+                  type="number" min="0" max="99"
+                  value={s.p1} placeholder="0"
+                  onChange={e => updateSet(i, 'p1', e.target.value)}
+                  style={{ width: 64, textAlign: 'center', margin: 0, fontSize: 22, fontWeight: 600, padding: '10px 6px', border: '1.5px solid #D1D5DB', borderRadius: 10, MozAppearance: 'textfield' }}
+                />
+                <span style={{ fontSize: 18, color: '#9CA3AF', fontWeight: 300 }}>–</span>
+                <input
+                  type="number" min="0" max="99"
+                  value={s.p2} placeholder="0"
+                  onChange={e => updateSet(i, 'p2', e.target.value)}
+                  style={{ width: 64, textAlign: 'center', margin: 0, fontSize: 22, fontWeight: 600, padding: '10px 6px', border: '1.5px solid #D1D5DB', borderRadius: 10, MozAppearance: 'textfield' }}
+                />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -210,12 +253,12 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
 
         <button
           type="submit"
-          disabled={loading || !bothSelected || !winner}
+          disabled={loading || !bothSidesReady || !winner}
           style={{
             background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8,
             padding: '12px 20px', fontSize: 14, fontWeight: 500, width: '100%',
-            opacity: (loading || !bothSelected || !winner) ? 0.5 : 1,
-            cursor: (loading || !bothSelected || !winner) ? 'default' : 'pointer',
+            opacity: (loading || !bothSidesReady || !winner) ? 0.5 : 1,
+            cursor: (loading || !bothSidesReady || !winner) ? 'default' : 'pointer',
           }}
         >
           {loading ? 'Submitting…' : 'Submit result →'}

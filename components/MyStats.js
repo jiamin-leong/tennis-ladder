@@ -71,8 +71,10 @@ export default function MyStats({ currentPlayer, allPlayers, ladderId }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {matches.map(m => {
-          const isWinner = m.winner_id === currentPlayer?.id;
-          const opponent = isWinner ? m.loser_name : m.winner_name;
+          const isWinner = m.winner_id === currentPlayer?.id || m.winner_partner_id === currentPlayer?.id;
+          const opponentName = isWinner ? m.loser_name : m.winner_name;
+          const opponentPartner = isWinner ? m.loser_partner_name : m.winner_partner_name;
+          const opponent = opponentPartner ? `${opponentName} & ${opponentPartner}` : opponentName;
           const ptsEarned = isWinner ? m.winner_pts : m.loser_pts;
           const result = isWinner ? 'W' : 'L';
           const resultColor = isWinner ? '#3B6D11' : '#A32D2D';

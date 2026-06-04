@@ -167,6 +167,7 @@ export default function Settings({ settings, onSave, ladderId }) {
     win_pts: 3,
     loss_pts: 0,
     draw_pts: 1,
+    format: 'singles',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -181,6 +182,7 @@ export default function Settings({ settings, onSave, ladderId }) {
         win_pts: settings.win_pts ?? 3,
         loss_pts: settings.loss_pts ?? 0,
         draw_pts: settings.draw_pts ?? 1,
+        format: settings.format || 'singles',
       });
     }
   }, [settings]);
@@ -259,6 +261,26 @@ export default function Settings({ settings, onSave, ladderId }) {
               <option value="bottom">Yes — always join at the very bottom</option>
               <option value="no">No — ladder locked after start date</option>
             </select>
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Format</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['singles', 'doubles'].map(f => (
+                <button
+                  key={f} type="button"
+                  onClick={() => setForm(fm => ({ ...fm, format: f }))}
+                  style={{
+                    flex: 1, padding: '9px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
+                    border: form.format === f ? '2px solid #3B6D11' : '2px solid #E5E7EB',
+                    background: form.format === f ? '#EAF3DE' : 'white',
+                    color: form.format === f ? '#27500A' : '#6B7280',
+                  }}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '1rem', marginBottom: 16 }}>
