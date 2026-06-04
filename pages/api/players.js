@@ -4,6 +4,24 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { status, ladderId } = req.query;
     try {
+      // Global pending registrations for admin home
+      if (status === 'pending-global') {
+        const { rows } = await pool.query(`
+          SELECT p.id, p.name, p.preferred_name, p.gender, p.preferred_locations,
+            COALESCE(
+              array_agg(l.name ORDER BY l.name) FILTER (WHERE l.name IS NOT NULL),
+              '{}'
+            ) AS requested_ladders
+          FROM players p
+          LEFT JOIN player_ladders pl ON pl.player_id = p.id AND pl.status = 'pending'
+          LEFT JOIN ladders l ON l.id = pl.ladder_id
+          WHERE p.status = 'pending' AND p.active = TRUE
+          GROUP BY p.id
+          ORDER BY p.joined_at ASC
+        `);
+        return res.status(200).json(rows);
+      }
+
       let rows;
       if (ladderId) {
         // Return players with ladder-specific stats
@@ -53,16 +71,32 @@ export default async function handler(req, res) {
     if (!id || !['approved', 'rejected', 'pending'].includes(status)) {
       return res.status(400).json({ error: 'Valid id and status required' });
     }
+    const client = await pool.connect();
     try {
-      const { rows } = await pool.query(
+      await client.query('BEGIN');
+      const { rows } = await client.query(
         `UPDATE players SET status = $1 WHERE id = $2 AND active = TRUE RETURNING id, name, status`,
         [status, id]
       );
-      if (rows.length === 0) return res.status(404).json({ error: 'Player not found' });
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Player not found' });
+      }
+      // When approving, also approve all their pending ladder requests
+      if (status === 'approved') {
+        await client.query(
+          `UPDATE player_ladders SET status = 'approved' WHERE player_id = $1 AND status = 'pending'`,
+          [id]
+        );
+      }
+      await client.query('COMMIT');
       return res.status(200).json(rows[0]);
     } catch (err) {
+      await client.query('ROLLBACK');
       console.error('PATCH /api/players error:', err);
       return res.status(500).json({ error: 'Failed to update player status' });
+    } finally {
+      client.release();
     }
   }
 

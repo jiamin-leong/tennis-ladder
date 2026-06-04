@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -112,6 +112,80 @@ function CreateLadderModal({ onClose, onCreated }) {
   );
 }
 
+function PendingRegistrations({ onApproved }) {
+  const [pending, setPending] = useState([]);
+  const [acting, setActing] = useState(null);
+
+  useEffect(() => { loadPending(); }, []);
+
+  async function loadPending() {
+    const res = await fetch('/api/players?status=pending-global');
+    if (res.ok) setPending(await res.json());
+  }
+
+  async function act(id, status) {
+    setActing(id);
+    try {
+      await fetch('/api/players', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+      await loadPending();
+      if (status === 'approved') onApproved?.();
+    } finally {
+      setActing(null);
+    }
+  }
+
+  if (pending.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#BA7517', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+        Pending registrations ({pending.length})
+      </div>
+      {pending.map(p => (
+        <div key={p.id} style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
+                {p.preferred_name && p.preferred_name !== p.name ? `${p.preferred_name} (${p.name})` : p.name}
+              </div>
+              {p.gender && (
+                <div style={{ fontSize: 12, color: '#6B7280', marginTop: 1 }}>
+                  {p.gender}{p.preferred_locations ? ` · ${p.preferred_locations}` : ''}
+                </div>
+              )}
+              {p.requested_ladders?.length > 0 && (
+                <div style={{ fontSize: 12, color: '#92400E', marginTop: 4 }}>
+                  Wants to join: {p.requested_ladders.join(', ')}
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <button
+                onClick={() => act(p.id, 'approved')}
+                disabled={acting === p.id}
+                style={{ fontSize: 12, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                Approve
+              </button>
+              <button
+                onClick={() => act(p.id, 'rejected')}
+                disabled={acting === p.id}
+                style={{ fontSize: 12, background: '#FCEBEB', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminHome({ ladders, onSelectLadder, onLaddersChange }) {
   const [showCreate, setShowCreate] = useState(false);
   const [pastExpanded, setPastExpanded] = useState(false);
@@ -127,6 +201,8 @@ export default function AdminHome({ ladders, onSelectLadder, onLaddersChange }) 
 
   return (
     <div>
+      <PendingRegistrations onApproved={onLaddersChange} />
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: '#374151' }}>All ladders</div>
         <button onClick={() => setShowCreate(true)} style={primaryBtn}>+ New ladder</button>
