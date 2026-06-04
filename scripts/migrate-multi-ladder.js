@@ -10,7 +10,7 @@ async function migrate() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ladders (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL DEFAULT 'Tennis Ladder',
+        name TEXT NOT NULL DEFAULT 'Court Ladder',
         start_date DATE NOT NULL DEFAULT CURRENT_DATE,
         end_date DATE NOT NULL DEFAULT (CURRENT_DATE + INTERVAL '90 days'),
         allow_join TEXT NOT NULL DEFAULT 'bottom',
@@ -34,7 +34,7 @@ async function migrate() {
 
     const { rows: count } = await client.query('SELECT COUNT(*) FROM ladders');
     if (parseInt(count[0].count) === 0) {
-      await client.query(`INSERT INTO ladders (name, start_date, end_date) VALUES ('Tennis Ladder', CURRENT_DATE, CURRENT_DATE + INTERVAL '90 days')`);
+      await client.query(`INSERT INTO ladders (name, start_date, end_date) VALUES ('Court Ladder', CURRENT_DATE, CURRENT_DATE + INTERVAL '90 days')`);
     }
 
     await client.query(`

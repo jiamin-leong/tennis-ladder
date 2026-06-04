@@ -14,7 +14,7 @@ const pool = new Pool({
 const schema = `
   CREATE TABLE IF NOT EXISTS ladder_settings (
     id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL DEFAULT 'Tennis Ladder',
+    name TEXT NOT NULL DEFAULT 'Court Ladder',
     start_date DATE NOT NULL DEFAULT CURRENT_DATE,
     end_date DATE NOT NULL DEFAULT (CURRENT_DATE + INTERVAL '90 days'),
     allow_join TEXT NOT NULL DEFAULT 'bottom',
@@ -50,14 +50,14 @@ const schema = `
 
   -- Seed default settings if none exist
   INSERT INTO ladder_settings (name, start_date, end_date)
-  SELECT 'My Tennis Ladder', CURRENT_DATE, CURRENT_DATE + INTERVAL '90 days'
+  SELECT 'My Court Ladder', CURRENT_DATE, CURRENT_DATE + INTERVAL '90 days'
   WHERE NOT EXISTS (SELECT 1 FROM ladder_settings);
 `;
 
 async function setup() {
   const client = await pool.connect();
   try {
-    console.log('🎾 Setting up Tennis Ladder database...');
+    console.log('🎾 Setting up Court Ladder database...');
     await client.query(schema);
     console.log('✅ Tables created successfully.');
   } catch (err) {

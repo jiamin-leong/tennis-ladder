@@ -32,7 +32,7 @@ export default function Home() {
   const [ladders, setLadders] = useState([]);
   const [currentLadder, setCurrentLadder] = useState(null);
   const [loadingData, setLoadingData] = useState(false);
-  const [appName, setAppName] = useState('Tennis Ladder');
+  const [appName, setAppName] = useState('Court Ladder');
 
   // Load app name even before login
   useEffect(() => {
@@ -269,7 +269,7 @@ export default function Home() {
           <div style={{ maxWidth: 640, margin: '0 auto', padding: '1.5rem 1rem' }}>
             <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {appName}</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🏆 {appName}</div>
                 <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>🔧 Admin view</div>
               </div>
               <button onClick={logout} style={{ fontSize: 12, color: '#3B6D11', background: 'none', border: '1px solid #A8D57A', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>
@@ -301,7 +301,7 @@ export default function Home() {
           <div style={{ maxWidth: 640, margin: '0 auto', padding: '1.5rem 1rem' }}>
             <div style={{ background: '#EAF3DE', borderRadius: 16, padding: '1rem 1.25rem', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {appName}</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🏆 {appName}</div>
                 <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>Welcome, {displayName}</div>
               </div>
               <button onClick={logout} style={{ fontSize: 12, color: '#3B6D11', background: 'none', border: '1px solid #A8D57A', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>
@@ -332,7 +332,7 @@ export default function Home() {
       <Head>
         <title>{ladderName}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="description" content="Tennis ladder — track matches, standings & scores" />
+        <meta name="description" content="Court Ladder — track matches, standings & scores" />
       </Head>
 
       <div style={{ minHeight: '100vh', background: '#F3F4F6' }}>
@@ -349,7 +349,7 @@ export default function Home() {
                 ‹
               </button>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🎾 {ladderName}</div>
+                <div style={{ fontSize: 20, fontWeight: 600, color: '#27500A' }}>🏆 {ladderName}</div>
                 <div style={{ fontSize: 13, color: '#3B6D11', marginTop: 2 }}>
                   {isAdmin ? '🔧 Admin view' : `Welcome, ${displayName}`}
                 </div>

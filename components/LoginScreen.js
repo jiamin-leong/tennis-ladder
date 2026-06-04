@@ -57,7 +57,7 @@ export default function LoginScreen({ ladderName, onContinue, onAdminLogin }) {
 
         {/* Logo / header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 56, marginBottom: 12 }}>🎾</div>
+          <div style={{ fontSize: 56, marginBottom: 12 }}>🏆</div>
           <div style={{ fontSize: 24, fontWeight: 700, color: '#27500A' }}>{ladderName}</div>
           <div style={{ fontSize: 14, color: '#6B7280', marginTop: 6 }}>Sign in to join the ladder</div>
         </div>
