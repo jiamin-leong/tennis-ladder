@@ -33,7 +33,7 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
   function resetWinner() { setWinner(''); }
 
   const bothSidesReady = isDoubles
-    ? p1a && p2a  // partners optional — allow 1v2 or 2v1 etc; minimum one each side
+    ? p1a && p1b && p2a && p2b
     : p1a && p2a && p1a !== p2a;
 
   function updateSet(i, side, val) {
@@ -60,7 +60,8 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
     e.preventDefault();
     setError('');
 
-    if (!p1a || !p2a) return setError('Please select at least one player per side.');
+    if (isDoubles && (!p1a || !p1b || !p2a || !p2b)) return setError('Please select both players for each team.');
+    if (!isDoubles && (!p1a || !p2a)) return setError('Please select both players.');
     if (!winner)       return setError('Please select who won.');
     if (sets[0].p1 === '' || sets[0].p2 === '')
       return setError('Please enter the Set 1 score.');
@@ -80,8 +81,8 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
         ladderId: ladderId ? Number(ladderId) : undefined,
       };
       if (isDoubles) {
-        if (p1b) body.p1PartnerId = Number(p1b);
-        if (p2b) body.p2PartnerId = Number(p2b);
+        body.p1PartnerId = Number(p1b);
+        body.p2PartnerId = Number(p2b);
       } else {
         // Singles: winnerId is an actual player id or 'draw'
         // winner state holds the player id string or 'draw'
@@ -165,12 +166,12 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
             <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Team 1</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <PlayerSelect value={p1a} onChange={setP1a} label="Player" slot="p1a" />
-              <PlayerSelect value={p1b} onChange={setP1b} label={<>Partner <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(opt.)</span></>} slot="p1b" />
+              <PlayerSelect value={p1b} onChange={setP1b} label="Partner" slot="p1b" />
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>Team 2</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <PlayerSelect value={p2a} onChange={setP2a} label="Player" slot="p2a" />
-              <PlayerSelect value={p2b} onChange={setP2b} label={<>Partner <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(opt.)</span></>} slot="p2b" />
+              <PlayerSelect value={p2b} onChange={setP2b} label="Partner" slot="p2b" />
             </div>
           </div>
         ) : (
