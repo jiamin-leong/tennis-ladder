@@ -113,21 +113,28 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
-    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, requesterId } = req.body;
+    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, co_organiser_phones, requesterId } = req.body;
     if (!id) return res.status(400).json({ error: 'id required' });
 
     const isCreator = await verifyCreator(id, requesterId);
     if (!isCreator) return res.status(403).json({ error: 'Not authorised' });
 
+    const normalizePhone = p => p.replace(/[\s\-().+]/g, '').trim();
+    const cleanPhones = Array.isArray(co_organiser_phones)
+      ? co_organiser_phones.map(normalizePhone).filter(Boolean)
+      : [];
+
     try {
       const { rows } = await pool.query(
         `UPDATE ladders SET name=$1, start_date=$2, end_date=$3, allow_join=$4,
-         win_pts=$5, loss_pts=$6, draw_pts=$7, format=$8, location=$9, is_public=$10, updated_at=NOW()
-         WHERE id=$11 RETURNING *`,
+         win_pts=$5, loss_pts=$6, draw_pts=$7, format=$8, location=$9, is_public=$10,
+         co_organiser_phones=$11, updated_at=NOW()
+         WHERE id=$12 RETURNING *`,
         [name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts,
          format === 'doubles' ? 'doubles' : 'singles',
          location?.trim() || null,
          is_public !== false,
+         cleanPhones,
          id]
       );
       if (rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });

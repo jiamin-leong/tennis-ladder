@@ -158,6 +158,13 @@ function FAQEditor() {
   );
 }
 
+function formatPhoneDisplay(digits) {
+  if (digits.startsWith('65') && digits.length === 10) {
+    return `+65 ${digits.slice(2, 6)} ${digits.slice(6)}`;
+  }
+  return digits;
+}
+
 export default function Settings({ settings, onSave, ladderId, requesterId }) {
   const [form, setForm] = useState({
     name: '',
@@ -171,9 +178,14 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
     location: '',
     is_public: true,
     sport: 'tennis',
+    co_organiser_phones: [],
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [newCoPhone, setNewCoPhone] = useState('');
+  const [coPhoneError, setCoPhoneError] = useState('');
+
+  const isPrimaryCreator = parseInt(settings?.creator_id) === parseInt(requesterId);
 
   useEffect(() => {
     if (settings) {
@@ -189,9 +201,31 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
         location: settings.location || '',
         is_public: settings.is_public !== false,
         sport: settings.sport || 'tennis',
+        co_organiser_phones: settings.co_organiser_phones || [],
       });
     }
   }, [settings]);
+
+  function addCoPhone() {
+    setCoPhoneError('');
+    const digits = newCoPhone.replace(/[\s\-().+]/g, '').trim();
+    if (!digits) return;
+    if (!/^\d{6,12}$/.test(digits)) {
+      setCoPhoneError('Enter a valid phone number.');
+      return;
+    }
+    const normalized = digits.startsWith('65') ? digits : `65${digits}`;
+    if (form.co_organiser_phones.includes(normalized)) {
+      setCoPhoneError('This number is already added.');
+      return;
+    }
+    setForm(f => ({ ...f, co_organiser_phones: [...f.co_organiser_phones, normalized] }));
+    setNewCoPhone('');
+  }
+
+  function removeCoPhone(phone) {
+    setForm(f => ({ ...f, co_organiser_phones: f.co_organiser_phones.filter(p => p !== phone) }));
+  }
 
   function daysLeft() {
     if (!form.end_date) return null;
@@ -294,6 +328,56 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
               ))}
             </div>
           </div>
+
+          {isPrimaryCreator && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Co-organiser access</label>
+              <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 8 }}>
+                Phone numbers listed here will have full organiser permissions.
+              </div>
+              {form.co_organiser_phones.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                  {form.co_organiser_phones.map(phone => (
+                    <div key={phone} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 12px' }}>
+                      <span style={{ fontSize: 13, color: '#374151', fontFamily: 'monospace' }}>
+                        📞 {formatPhoneDisplay(phone)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeCoPhone(phone)}
+                        style={{ fontSize: 12, background: 'none', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 8, background: 'white', overflow: 'hidden', paddingLeft: 12 }}>
+                  <span style={{ fontSize: 14, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
+                  <input
+                    type="text"
+                    value={newCoPhone}
+                    onChange={e => { setNewCoPhone(e.target.value); setCoPhoneError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCoPhone())}
+                    placeholder="8489 7670"
+                    style={{ flex: 1, border: 'none', outline: 'none', margin: 0, padding: '10px 10px', fontSize: 14, background: 'transparent' }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={addCoPhone}
+                  style={{ fontSize: 13, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  + Add
+                </button>
+              </div>
+              {coPhoneError && (
+                <div style={{ fontSize: 12, color: '#A32D2D', marginTop: 4 }}>{coPhoneError}</div>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"

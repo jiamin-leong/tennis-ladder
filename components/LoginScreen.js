@@ -134,8 +134,10 @@ export default function LoginScreen({ ladderName, onContinue, onAdminLogin }) {
     if (!phone.trim()) return;
     setError('');
     setLoading(true);
+    const digits = phone.replace(/[\s\-().]/g, '').trim();
+    const fullPhone = digits.startsWith('65') ? digits : `65${digits}`;
     try {
-      await onContinue(phone.trim());
+      await onContinue(fullPhone);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -148,8 +150,10 @@ export default function LoginScreen({ ladderName, onContinue, onAdminLogin }) {
     if (!adminPhone.trim() || !adminPin.trim()) return;
     setAdminError('');
     setAdminLoading(true);
+    const adminDigits = adminPhone.replace(/[\s\-().]/g, '').trim();
+    const fullAdminPhone = adminDigits.startsWith('65') ? adminDigits : `65${adminDigits}`;
     try {
-      await onAdminLogin(adminPhone.trim(), adminPin.trim());
+      await onAdminLogin(fullAdminPhone, adminPin.trim());
     } catch (err) {
       setAdminError(err.message);
     } finally {
@@ -277,14 +281,14 @@ export default function LoginScreen({ ladderName, onContinue, onAdminLogin }) {
           {!showAdmin ? (
             <form onSubmit={handleContinue}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Phone number</label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="+65 9123 4567"
-                autoFocus
-                style={{ width: '100%', padding: '12px 14px', fontSize: 16, border: '1px solid #D1D5DB', borderRadius: 10, boxSizing: 'border-box', outline: 'none', marginBottom: 0 }}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 10, background: 'white', overflow: 'hidden', paddingLeft: 14 }}>
+                <span style={{ fontSize: 16, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
+                <input
+                  type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                  placeholder="9123 4567" autoFocus
+                  style={{ flex: 1, border: 'none', outline: 'none', padding: '12px 12px', fontSize: 16, background: 'transparent', boxSizing: 'border-box' }}
+                />
+              </div>
               {error && <div style={{ fontSize: 13, color: '#A32D2D', marginTop: 8 }}>{error}</div>}
               <button type="submit" disabled={loading || !phone.trim()} style={btnStyle(loading || !phone.trim())}>
                 {loading ? 'Checking…' : 'Continue →'}
@@ -294,8 +298,14 @@ export default function LoginScreen({ ladderName, onContinue, onAdminLogin }) {
             <form onSubmit={handleAdminLogin}>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#27500A', marginBottom: 12 }}>Admin login</div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Phone number</label>
-              <input type="tel" value={adminPhone} onChange={e => setAdminPhone(e.target.value)} placeholder="+65 9123 4567"
-                style={{ width: '100%', padding: '12px 14px', fontSize: 16, border: '1px solid #D1D5DB', borderRadius: 10, boxSizing: 'border-box', outline: 'none', marginBottom: 12 }} />
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 10, background: 'white', overflow: 'hidden', paddingLeft: 14, marginBottom: 12 }}>
+                <span style={{ fontSize: 16, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
+                <input
+                  type="tel" value={adminPhone} onChange={e => setAdminPhone(e.target.value)}
+                  placeholder="9123 4567"
+                  style={{ flex: 1, border: 'none', outline: 'none', padding: '12px 12px', fontSize: 16, background: 'transparent', boxSizing: 'border-box' }}
+                />
+              </div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Admin PIN</label>
               <input type="password" value={adminPin} onChange={e => setAdminPin(e.target.value)} placeholder="Enter PIN"
                 style={{ width: '100%', padding: '12px 14px', fontSize: 16, border: '1px solid #D1D5DB', borderRadius: 10, boxSizing: 'border-box', outline: 'none', marginBottom: 0 }} />

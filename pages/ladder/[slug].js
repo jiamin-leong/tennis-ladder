@@ -84,19 +84,21 @@ function LoginModal({ onClose, onSuccess }) {
     e.preventDefault();
     if (!phone.trim()) return;
     setLoading(true); setError('');
+    const digits = phone.replace(/[\s\-().]/g, '').trim();
+    const fullPhone = digits.startsWith('65') ? digits : `65${digits}`;
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ phone: fullPhone }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
       if (data.exists) {
-        saveSession(phone.trim(), data.player);
-        onSuccess(data.player, phone.trim());
+        saveSession(fullPhone, data.player);
+        onSuccess(data.player, fullPhone);
       } else {
-        router.push(`/register?phone=${encodeURIComponent(phone.trim())}&returnTo=${encodeURIComponent(router.asPath)}`);
+        router.push(`/register?phone=${encodeURIComponent(fullPhone)}&returnTo=${encodeURIComponent(router.asPath)}`);
       }
     } catch (err) {
       setError(err.message);
@@ -115,11 +117,14 @@ function LoginModal({ onClose, onSuccess }) {
         <div style={{ padding: '1.25rem 1.5rem' }}>
           <form onSubmit={handleSubmit}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Phone number</label>
-            <input
-              type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-              placeholder="+65 9123 4567" autoFocus
-              style={{ width: '100%', padding: '12px 14px', fontSize: 15, border: '1px solid #D1D5DB', borderRadius: 10, boxSizing: 'border-box', outline: 'none' }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 10, background: 'white', overflow: 'hidden', paddingLeft: 14 }}>
+              <span style={{ fontSize: 15, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
+              <input
+                type="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                placeholder="9123 4567" autoFocus
+                style={{ flex: 1, border: 'none', outline: 'none', padding: '12px 12px', fontSize: 15, background: 'transparent', boxSizing: 'border-box' }}
+              />
+            </div>
             {error && <div style={{ fontSize: 13, color: '#A32D2D', marginTop: 8 }}>{error}</div>}
             <button type="submit" disabled={loading || !phone.trim()} style={{
               width: '100%', marginTop: 12, padding: '12px', fontSize: 14, fontWeight: 600,
@@ -214,7 +219,9 @@ export default function LadderPage({ initialLadder, notFound }) {
         setLadder(fresh);
         const ms = fresh.my_status ?? null;
         setMembership(ms);
-        const isCreator = parseInt(fresh.creator_id) === parseInt(currentPlayer.id);
+        const normalizedPhone = (currentPlayer.phone || '').replace(/[\s\-().+]/g, '').trim();
+        const isCreator = parseInt(fresh.creator_id) === parseInt(currentPlayer.id)
+          || (fresh.co_organiser_phones || []).includes(normalizedPhone);
         const mode = isCreator ? 'creator' : 'member';
         setViewMode(mode);
         if (ms === 'approved') {
@@ -244,7 +251,9 @@ export default function LadderPage({ initialLadder, notFound }) {
   }, []);
 
   async function refreshData() {
-    const isCreator = parseInt(ladder?.creator_id) === parseInt(currentPlayer?.id);
+    const normalizedPhone = (currentPlayer?.phone || '').replace(/[\s\-().+]/g, '').trim();
+    const isCreator = parseInt(ladder?.creator_id) === parseInt(currentPlayer?.id)
+      || (ladder?.co_organiser_phones || []).includes(normalizedPhone);
     // Re-fetch the ladder itself so settings changes are reflected when the form remounts
     const lRes = await fetch(`/api/ladders?slug=${ladder.slug}&playerId=${currentPlayer?.id}`);
     if (lRes.ok) {

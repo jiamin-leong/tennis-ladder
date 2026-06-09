@@ -1,7 +1,8 @@
 import pool from '../../lib/db';
 
 function normalizePhone(phone) {
-  return phone.replace(/[\s\-().+]/g, '').trim();
+  const digits = phone.replace(/[\s\-().+]/g, '').trim();
+  return digits.startsWith('65') ? digits : `65${digits}`;
 }
 
 export default async function handler(req, res) {
