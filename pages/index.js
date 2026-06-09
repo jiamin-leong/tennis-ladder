@@ -174,7 +174,7 @@ function FeatureGrid() {
     {
       emoji: '👤👥',
       headline: 'Singles & Doubles',
-      sub: 'Run either format, or both at the same time',
+      sub: 'Run singles, doubles, or both formats',
     },
     {
       emoji: '⚡',
