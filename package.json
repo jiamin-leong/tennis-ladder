@@ -9,6 +9,7 @@
     "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "dotenv": "^17.4.2",
     "next": "14.2.3",
     "pg": "^8.11.5",
