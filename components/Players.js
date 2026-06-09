@@ -1,15 +1,13 @@
 import { useState } from 'react';
+import { profileEmoji } from '../lib/playerEmoji';
 
-const colors = ['green', 'blue', 'amber', 'red'];
-const avatarBg = {
-  green: { bg: '#EAF3DE', text: '#3B6D11' },
-  blue:  { bg: '#E6F1FB', text: '#185FA5' },
-  amber: { bg: '#FAEEDA', text: '#BA7517' },
-  red:   { bg: '#FCEBEB', text: '#A32D2D' },
-};
-
-function initials(name) {
-  return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+function formatPhone(raw) {
+  if (!raw) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('65') && digits.length === 10) {
+    return `+65 ${digits.slice(2, 6)} ${digits.slice(6)}`;
+  }
+  return digits;
 }
 
 const STATUS_BADGE = {
@@ -19,68 +17,72 @@ const STATUS_BADGE = {
 };
 
 function PlayerRow({ player, i, ladderId, showApprove, showReject, onStatusChange }) {
-  const color = colors[i % colors.length];
-  const { bg, text } = avatarBg[color];
   const badge = STATUS_BADGE[player.status] || STATUS_BADGE.approved;
   const displayName = player.preferred_name || player.name;
+  const playerId = player.player_id ?? player.id;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, marginBottom: 6 }}>
-      <div style={{ width: 32, height: 32, borderRadius: '50%', background: bg, color: text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
-        {initials(displayName)}
+    <div style={{ background: 'white', borderRadius: 10, marginBottom: 8, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px' }}>
+        <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#EAF3DE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+          {profileEmoji(playerId)}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
+            <span style={{ fontSize: 11, background: badge.bg, color: badge.color, padding: '2px 7px', borderRadius: 5, fontWeight: 600, flexShrink: 0 }}>
+              {badge.label}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>
+            {player.preferred_name && player.name !== player.preferred_name && (
+              <span style={{ fontSize: 12, color: '#9CA3AF' }}>{player.name}</span>
+            )}
+            {player.gender && (
+              <span style={{ fontSize: 12, color: '#9CA3AF' }}>{player.gender}</span>
+            )}
+            {player.preferred_locations && (
+              <span style={{ fontSize: 12, color: '#9CA3AF' }}>📍 {player.preferred_locations}</span>
+            )}
+            {player.phone && (
+              <span style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>📞 {formatPhone(player.phone)}</span>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          {showApprove && (
+            <button
+              onClick={() => onStatusChange(player.player_id ?? player.id, 'approved')}
+              style={{ fontSize: 12, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}
+            >
+              Approve
+            </button>
+          )}
+          {showReject && (
+            <button
+              onClick={() => onStatusChange(player.player_id ?? player.id, 'rejected')}
+              style={{ fontSize: 12, background: '#FCEBEB', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}
+            >
+              Reject
+            </button>
+          )}
+        </div>
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
-        {player.preferred_name && player.name !== player.preferred_name && (
-          <div style={{ fontSize: 11, color: '#9CA3AF' }}>{player.name}</div>
-        )}
-        {player.gender && (
-          <div style={{ fontSize: 11, color: '#9CA3AF' }}>{player.gender}{player.preferred_locations ? ` · ${player.preferred_locations}` : ''}</div>
-        )}
-      </div>
-      <span style={{ fontSize: 11, background: badge.bg, color: badge.color, padding: '2px 7px', borderRadius: 5, fontWeight: 600, flexShrink: 0 }}>
-        {badge.label}
-      </span>
-      {showApprove && (
-        <button
-          onClick={() => onStatusChange(player.player_id ?? player.id, 'approved')}
-          style={{ fontSize: 12, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}
-        >
-          Approve
-        </button>
-      )}
-      {showReject && (
-        <button
-          onClick={() => onStatusChange(player.player_id ?? player.id, 'rejected')}
-          style={{ fontSize: 12, background: '#FCEBEB', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }}
-        >
-          Reject
-        </button>
-      )}
     </div>
   );
 }
 
-export default function Players({ players, ladderId, onPlayersChange }) {
+export default function Players({ players, ladderId, creatorId, onPlayersChange }) {
   const [error, setError] = useState('');
 
   async function updateStatus(playerId, status) {
     setError('');
     try {
-      let res;
-      if (ladderId) {
-        res = await fetch('/api/player-ladders', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ playerId, ladderId, status }),
-        });
-      } else {
-        res = await fetch('/api/players', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: playerId, status }),
-        });
-      }
+      const res = await fetch('/api/player-ladders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, ladderId, status, requesterId: creatorId }),
+      });
       if (!res.ok) throw new Error('Failed to update status');
       onPlayersChange?.();
     } catch (err) {

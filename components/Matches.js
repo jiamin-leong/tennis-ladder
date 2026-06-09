@@ -1,4 +1,4 @@
-export default function Matches({ matches, settings, isAdmin, onMatchDeleted }) {
+export default function Matches({ matches, settings, isAdmin, creatorId, onMatchDeleted }) {
   function formatDate(iso) {
     if (!iso) return '';
     return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
@@ -13,7 +13,7 @@ export default function Matches({ matches, settings, isAdmin, onMatchDeleted }) 
     const res = await fetch('/api/matches', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId }),
+      body: JSON.stringify({ matchId, requesterId: creatorId }),
     });
     if (res.ok) onMatchDeleted?.();
   }

@@ -1,4 +1,5 @@
 import pool from '../../lib/db';
+import { verifyCreator } from '../../lib/verifyCreator';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -158,7 +159,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const { matchId } = req.body;
+    const { matchId, requesterId } = req.body;
     if (!matchId) return res.status(400).json({ error: 'matchId required' });
 
     const client = await pool.connect();
@@ -172,6 +173,8 @@ export default async function handler(req, res) {
       if (rows.length === 0) return res.status(404).json({ error: 'Match not found' });
 
       const m = rows[0];
+      const isCreator = await verifyCreator(m.ladder_id, requesterId);
+      if (!isCreator) return res.status(403).json({ error: 'Not authorised' });
       const isDraw = m.score === 'Draw';
       const winnerIds = [m.winner_id, m.winner_partner_id].filter(Boolean);
       const loserIds  = [m.loser_id,  m.loser_partner_id].filter(Boolean);

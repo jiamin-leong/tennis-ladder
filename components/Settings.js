@@ -158,7 +158,7 @@ function FAQEditor() {
   );
 }
 
-export default function Settings({ settings, onSave, ladderId }) {
+export default function Settings({ settings, onSave, ladderId, requesterId }) {
   const [form, setForm] = useState({
     name: '',
     start_date: '',
@@ -168,6 +168,9 @@ export default function Settings({ settings, onSave, ladderId }) {
     loss_pts: 0,
     draw_pts: 1,
     format: 'singles',
+    location: '',
+    is_public: true,
+    sport: 'tennis',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -183,6 +186,9 @@ export default function Settings({ settings, onSave, ladderId }) {
         loss_pts: settings.loss_pts ?? 0,
         draw_pts: settings.draw_pts ?? 1,
         format: settings.format || 'singles',
+        location: settings.location || '',
+        is_public: settings.is_public !== false,
+        sport: settings.sport || 'tennis',
       });
     }
   }, [settings]);
@@ -205,8 +211,8 @@ export default function Settings({ settings, onSave, ladderId }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const url = ladderId ? '/api/ladders' : '/api/settings';
-      const body = ladderId ? { id: ladderId, ...form } : form;
+      const url = '/api/ladders';
+      const body = { id: ladderId, ...form, requesterId };
       const res = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -243,6 +249,12 @@ export default function Settings({ settings, onSave, ladderId }) {
             <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </div>
 
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Location <span style={{ color: '#9CA3AF' }}>(city or country)</span></label>
+            <input type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Singapore" />
+          </div>
+
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, ...fieldStyle }}>
             <div>
               <label style={labelStyle}>Start date</label>
@@ -263,40 +275,21 @@ export default function Settings({ settings, onSave, ladderId }) {
             </select>
           </div>
 
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Format</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {['singles', 'doubles'].map(f => (
-                <button
-                  key={f} type="button"
-                  onClick={() => setForm(fm => ({ ...fm, format: f }))}
-                  style={{
-                    flex: 1, padding: '9px', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer',
-                    border: form.format === f ? '2px solid #3B6D11' : '2px solid #E5E7EB',
-                    background: form.format === f ? '#EAF3DE' : 'white',
-                    color: form.format === f ? '#27500A' : '#6B7280',
-                  }}
-                >
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 10, padding: '1rem', marginBottom: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-              Points per result
+              Fixed at creation
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              {[['Win', 'win_pts'], ['Loss', 'loss_pts'], ['Draw', 'draw_pts']].map(([label, key]) => (
-                <div key={key} style={{ textAlign: 'center' }}>
-                  <label style={{ ...labelStyle, textAlign: 'center' }}>{label}</label>
-                  <input
-                    type="number" min="0" max="99"
-                    value={form[key]}
-                    onChange={e => setForm(f => ({ ...f, [key]: Number(e.target.value) }))}
-                    style={ptsInput}
-                  />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 8 }}>
+              {[
+                ['Sport',  form.sport === 'pickleball' ? '🏓 Pickleball' : '🎾 Tennis'],
+                ['Format', form.format === 'doubles' ? 'Doubles' : 'Singles'],
+                ['Win',    `${form.win_pts} pts`],
+                ['Draw',   `${form.draw_pts} pts`],
+                ['Loss',   `${form.loss_pts} pts`],
+              ].map(([label, value]) => (
+                <div key={label} style={{ textAlign: 'center', background: 'white', borderRadius: 8, padding: '10px 6px', border: '1px solid #E5E7EB' }}>
+                  <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>{value}</div>
                 </div>
               ))}
             </div>

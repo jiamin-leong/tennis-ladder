@@ -1,16 +1,6 @@
+import { profileEmoji } from '../lib/playerEmoji';
+
 export default function Leaderboard({ players, matchCount, currentPlayerId }) {
-  const colors = ['green', 'blue', 'amber', 'red'];
-  const avatarBg = {
-    green: { bg: '#EAF3DE', text: '#3B6D11' },
-    blue: { bg: '#E6F1FB', text: '#185FA5' },
-    amber: { bg: '#FAEEDA', text: '#BA7517' },
-    red: { bg: '#FCEBEB', text: '#A32D2D' },
-  };
-
-  function initials(name) {
-    return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-  }
-
   function rankColor(i) {
     if (i === 0) return '#BA7517';
     if (i === 1) return '#888780';
@@ -53,8 +43,6 @@ export default function Leaderboard({ players, matchCount, currentPlayerId }) {
 
       {players.map((player, i) => {
         const isMe = player.id === currentPlayerId;
-        const color = colors[i % colors.length];
-        const { bg, text } = avatarBg[color];
         const displayName = player.preferred_name || player.name;
         return (
           <div key={player.id} style={{
@@ -70,8 +58,8 @@ export default function Leaderboard({ players, matchCount, currentPlayerId }) {
             <div style={{ fontSize: 20, fontWeight: 600, color: rankColor(i), minWidth: 28, textAlign: 'right' }}>
               {i + 1}
             </div>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: bg, color: text, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 14, flexShrink: 0 }}>
-              {initials(displayName)}
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#EAF3DE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+              {profileEmoji(player.id)}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 500, fontSize: 15 }}>

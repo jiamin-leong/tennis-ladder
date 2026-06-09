@@ -17,17 +17,14 @@ export default async function handler(req, res) {
 
   try {
     const { rows } = await pool.query(
-      `SELECT id, name, preferred_name, gender, preferred_locations, status, is_admin
+      `SELECT id, name, preferred_name, gender, preferred_locations, status
        FROM players WHERE phone = $1 AND active = TRUE`,
       [normalized]
     );
 
     if (rows.length === 0) return res.status(200).json({ exists: false });
 
-    const player = rows[0];
-    if (player.is_admin) return res.status(200).json({ exists: true, requiresAdminPin: true, player });
-
-    return res.status(200).json({ exists: true, player });
+    return res.status(200).json({ exists: true, player: rows[0] });
   } catch (err) {
     console.error('POST /api/auth error:', err);
     return res.status(500).json({ error: 'Server error' });

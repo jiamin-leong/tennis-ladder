@@ -28,7 +28,7 @@ export default async function handler(req, res) {
         ({ rows } = await pool.query(
           status === 'all'
             ? `SELECT p.id, COALESCE(p.preferred_name, p.name) AS name, p.preferred_name,
-                 p.gender, p.preferred_locations, p.joined_at,
+                 p.gender, p.preferred_locations, p.phone, p.joined_at,
                  pl.points, pl.wins, pl.losses, pl.status, pl.joined_at AS ladder_joined_at
                FROM player_ladders pl
                JOIN players p ON p.id = pl.player_id

@@ -1,4 +1,5 @@
 import pool from '../../lib/db';
+import { verifyCreator } from '../../lib/verifyCreator';
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -55,12 +56,13 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    // Admin approves or rejects a player in a ladder
-    const { playerId, ladderId, status } = req.body;
+    const { playerId, ladderId, status, requesterId } = req.body;
     if (!playerId || !ladderId || !status) return res.status(400).json({ error: 'playerId, ladderId, status required' });
     if (!['approved', 'rejected', 'pending'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+    const isCreator = await verifyCreator(ladderId, requesterId);
+    if (!isCreator) return res.status(403).json({ error: 'Not authorised' });
     try {
       const { rows } = await pool.query(
         `UPDATE player_ladders SET status=$1 WHERE player_id=$2 AND ladder_id=$3 RETURNING *`,

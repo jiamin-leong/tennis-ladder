@@ -1,28 +1,69 @@
 import pool from '../../lib/db';
+import { verifyCreator } from '../../lib/verifyCreator';
+
+function generateSlug(name) {
+  const base = name.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  const suffix = Date.now().toString(36).slice(-5);
+  return `${base}-${suffix}`;
+}
+
+const LADDER_SELECT_BASE = `
+  SELECT l.*,
+    COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'approved') AS player_count,
+    COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'pending')  AS pending_count,
+    COUNT(DISTINCT m.id) AS match_count
+  FROM ladders l
+  LEFT JOIN player_ladders pl ON pl.ladder_id = l.id
+  LEFT JOIN matches m ON m.ladder_id = l.id
+`;
+
+const LADDER_SELECT_MY = `
+  SELECT l.*,
+    COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'approved') AS player_count,
+    COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'pending')  AS pending_count,
+    COUNT(DISTINCT m.id) AS match_count,
+    my.status AS my_status
+  FROM ladders l
+  LEFT JOIN player_ladders pl ON pl.ladder_id = l.id
+  LEFT JOIN matches m ON m.ladder_id = l.id
+`;
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    const { playerId } = req.query;
+    const { playerId, slug } = req.query;
     try {
-      const query = playerId
-        ? `SELECT l.*,
-            COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'approved') AS player_count,
-            COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'pending')  AS pending_count,
-            my.status AS my_status
-           FROM ladders l
-           LEFT JOIN player_ladders pl ON pl.ladder_id = l.id
-           LEFT JOIN player_ladders my ON my.ladder_id = l.id AND my.player_id = $1
-           GROUP BY l.id, my.status
-           ORDER BY l.start_date DESC`
-        : `SELECT l.*,
-            COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'approved') AS player_count,
-            COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'pending')  AS pending_count
-           FROM ladders l
-           LEFT JOIN player_ladders pl ON pl.ladder_id = l.id
-           GROUP BY l.id
-           ORDER BY l.start_date DESC`;
+      let query, params;
 
-      const { rows } = await pool.query(query, playerId ? [playerId] : []);
+      if (slug) {
+        query = playerId
+          ? LADDER_SELECT_MY + ` LEFT JOIN player_ladders my ON my.ladder_id = l.id AND my.player_id = $2
+              WHERE l.slug = $1 GROUP BY l.id, my.status`
+          : LADDER_SELECT_BASE + ` WHERE l.slug = $1 GROUP BY l.id`;
+        params = playerId ? [slug, playerId] : [slug];
+        const { rows } = await pool.query(query, params);
+        if (rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });
+        return res.status(200).json(rows[0]);
+      }
+
+      if (playerId) {
+        query = LADDER_SELECT_MY + `
+          LEFT JOIN player_ladders my ON my.ladder_id = l.id AND my.player_id = $1
+          GROUP BY l.id, my.status
+          ORDER BY l.start_date DESC`;
+        params = [playerId];
+      } else {
+        // Public ladder directory
+        query = LADDER_SELECT_BASE + `
+          WHERE l.is_public = TRUE
+          GROUP BY l.id
+          ORDER BY l.start_date DESC`;
+        params = [];
+      }
+
+      const { rows } = await pool.query(query, params);
       return res.status(200).json(rows);
     } catch (err) {
       console.error('GET /api/ladders error:', err);
@@ -31,36 +72,63 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format } = req.body;
+    const { name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, sport, creator_id } = req.body;
     if (!name?.trim() || !start_date || !end_date) {
       return res.status(400).json({ error: 'name, start_date, end_date required' });
     }
+    const slug = generateSlug(name.trim());
+    const client = await pool.connect();
     try {
-      const { rows } = await pool.query(
-        `INSERT INTO ladders (name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [name.trim(), start_date, end_date,
-         allow_join || 'bottom',
-         win_pts ?? 3, loss_pts ?? 0, draw_pts ?? 1,
-         format === 'doubles' ? 'doubles' : 'singles']
+      await client.query('BEGIN');
+      const { rows } = await client.query(
+        `INSERT INTO ladders (name, slug, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, sport, creator_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+        [
+          name.trim(), slug, start_date, end_date,
+          allow_join || 'bottom',
+          win_pts ?? 3, loss_pts ?? 0, draw_pts ?? 1,
+          format === 'doubles' ? 'doubles' : 'singles',
+          location?.trim() || null,
+          is_public !== false,
+          sport === 'pickleball' ? 'pickleball' : 'tennis',
+          creator_id || null,
+        ]
       );
+      // Auto-add creator as approved member of their own ladder
+      if (creator_id) {
+        await client.query(
+          `INSERT INTO player_ladders (player_id, ladder_id, status) VALUES ($1, $2, 'approved') ON CONFLICT DO NOTHING`,
+          [creator_id, rows[0].id]
+        );
+      }
+      await client.query('COMMIT');
       return res.status(201).json(rows[0]);
     } catch (err) {
+      await client.query('ROLLBACK');
       console.error('POST /api/ladders error:', err);
       return res.status(500).json({ error: 'Server error' });
+    } finally {
+      client.release();
     }
   }
 
   if (req.method === 'PUT') {
-    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format } = req.body;
+    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, requesterId } = req.body;
     if (!id) return res.status(400).json({ error: 'id required' });
+
+    const isCreator = await verifyCreator(id, requesterId);
+    if (!isCreator) return res.status(403).json({ error: 'Not authorised' });
+
     try {
       const { rows } = await pool.query(
         `UPDATE ladders SET name=$1, start_date=$2, end_date=$3, allow_join=$4,
-         win_pts=$5, loss_pts=$6, draw_pts=$7, format=$8, updated_at=NOW()
-         WHERE id=$9 RETURNING *`,
+         win_pts=$5, loss_pts=$6, draw_pts=$7, format=$8, location=$9, is_public=$10, updated_at=NOW()
+         WHERE id=$11 RETURNING *`,
         [name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts,
-         format === 'doubles' ? 'doubles' : 'singles', id]
+         format === 'doubles' ? 'doubles' : 'singles',
+         location?.trim() || null,
+         is_public !== false,
+         id]
       );
       if (rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });
       return res.status(200).json(rows[0]);
