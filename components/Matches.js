@@ -107,46 +107,53 @@ export default function Matches({ matches, settings, isAdmin, creatorId, onMatch
           return (
             <div key={m.id} style={{ borderBottom: i < matches.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
               {/* Match row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px' }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontWeight: 500 }}>{sideALabel}</span>
-                  <span style={{ color: '#9CA3AF', margin: '0 6px', fontSize: 13 }}>def.</span>
-                  <span style={{ color: '#6B7280' }}>{sideBLabel}</span>
-                </div>
-                <div style={{ fontSize: 13, color: '#6B7280', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{m.score}</div>
-                <div style={{ flexShrink: 0 }}>
-                  <span style={{ background: '#EAF3DE', color: '#3B6D11', fontSize: 12, fontWeight: 500, padding: '2px 8px', borderRadius: 6 }}>
-                    +{m.winner_pts}
-                  </span>
-                </div>
-                <div style={{ fontSize: 12, color: '#9CA3AF', minWidth: 60, textAlign: 'right', flexShrink: 0 }}>
-                  {m.court && <span style={{ display: 'block' }}>{m.court}</span>}
-                  {formatDate(m.played_at)}
-                </div>
-                {isAdmin && (
-                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button
-                      onClick={() => isEditing ? setEditingId(null) : startEdit(m)}
-                      style={{
-                        background: isEditing ? '#F3F4F6' : 'white', color: isEditing ? '#6B7280' : '#3B6D11',
-                        border: `1px solid ${isEditing ? '#D1D5DB' : '#A8D57A'}`, borderRadius: 6,
-                        padding: '4px 10px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                      }}
-                    >
-                      {isEditing ? 'Cancel' : 'Edit'}
-                    </button>
-                    <button
-                      onClick={() => deleteMatch(m.id)}
-                      style={{
-                        background: '#FCEBEB', color: '#A32D2D',
-                        border: '1px solid #FECACA', borderRadius: 6,
-                        padding: '4px 10px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                      }}
-                    >
-                      Delete
-                    </button>
+              <div style={{ padding: '10px 16px' }}>
+                {/* Players */}
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{sideALabel}</span>
+                    <span style={{ background: '#EAF3DE', color: '#3B6D11', fontSize: 12, fontWeight: 500, padding: '2px 8px', borderRadius: 6, flexShrink: 0 }}>
+                      +{m.winner_pts}
+                    </span>
                   </div>
-                )}
+                  <div style={{ fontSize: 13, color: '#6B7280', marginTop: 2 }}>
+                    <span style={{ color: '#9CA3AF', marginRight: 4 }}>def.</span>{sideBLabel}
+                  </div>
+                </div>
+                {/* Meta row: score · court · date · buttons */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {m.score && m.score !== '—' && (
+                    <span style={{ fontSize: 12, color: '#6B7280', fontVariantNumeric: 'tabular-nums' }}>{m.score}</span>
+                  )}
+                  {m.court && (
+                    <span style={{ fontSize: 12, color: '#9CA3AF' }}>· {m.court}</span>
+                  )}
+                  <span style={{ fontSize: 12, color: '#9CA3AF' }}>· {formatDate(m.played_at)}</span>
+                  {isAdmin && (
+                    <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                      <button
+                        onClick={() => isEditing ? setEditingId(null) : startEdit(m)}
+                        style={{
+                          background: isEditing ? '#F3F4F6' : 'white', color: isEditing ? '#6B7280' : '#3B6D11',
+                          border: `1px solid ${isEditing ? '#D1D5DB' : '#A8D57A'}`, borderRadius: 6,
+                          padding: '4px 10px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                        }}
+                      >
+                        {isEditing ? 'Cancel' : 'Edit'}
+                      </button>
+                      <button
+                        onClick={() => deleteMatch(m.id)}
+                        style={{
+                          background: '#FCEBEB', color: '#A32D2D',
+                          border: '1px solid #FECACA', borderRadius: 6,
+                          padding: '4px 10px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Inline edit form */}
