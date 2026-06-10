@@ -211,6 +211,125 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
+  if (req.method === 'PUT') {
+    const { matchId, requesterId, newWinnerSide, score, court, playedAt } = req.body;
+    // newWinnerSide: 'same' | 'swap' | 'draw'
+    if (!matchId) return res.status(400).json({ error: 'matchId required' });
+
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query(
+        `SELECT winner_id, winner_partner_id, loser_id, loser_partner_id,
+                winner_pts, loser_pts, score AS old_score, ladder_id
+         FROM matches WHERE id = $1`,
+        [matchId]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: 'Match not found' });
+      const old = rows[0];
+
+      const isCreator = await verifyCreator(old.ladder_id, requesterId);
+      if (!isCreator) return res.status(403).json({ error: 'Not authorised' });
+
+      const ladderRes = await pool.query(
+        'SELECT win_pts, loss_pts, draw_pts FROM ladders WHERE id = $1',
+        [old.ladder_id]
+      );
+      const { win_pts, loss_pts, draw_pts } = ladderRes.rows[0];
+
+      const wasDrawn = old.old_score === 'Draw';
+      const oldWinnerIds = [old.winner_id, old.winner_partner_id].filter(Boolean);
+      const oldLoserIds  = [old.loser_id,  old.loser_partner_id].filter(Boolean);
+
+      const isNowDraw = newWinnerSide === 'draw';
+      const swapped   = newWinnerSide === 'swap';
+
+      const newWinnerId        = swapped ? old.loser_id         : old.winner_id;
+      const newWinnerPartnerId = swapped ? old.loser_partner_id : old.winner_partner_id;
+      const newLoserId         = swapped ? old.winner_id        : old.loser_id;
+      const newLoserPartnerId  = swapped ? old.winner_partner_id: old.loser_partner_id;
+
+      const newWinnerIds = [newWinnerId, newWinnerPartnerId].filter(Boolean);
+      const newLoserIds  = [newLoserId,  newLoserPartnerId].filter(Boolean);
+      const newWinnerPts = isNowDraw ? draw_pts : win_pts;
+      const newLoserPts  = isNowDraw ? draw_pts : loss_pts;
+
+      await client.query('BEGIN');
+
+      // Reverse old points
+      if (wasDrawn) {
+        for (const pid of [...oldWinnerIds, ...oldLoserIds]) {
+          await client.query(
+            `UPDATE player_ladders SET points = points - $1 WHERE ladder_id = $2 AND player_id = $3`,
+            [old.winner_pts, old.ladder_id, pid]
+          );
+        }
+      } else {
+        for (const pid of oldWinnerIds) {
+          await client.query(
+            `UPDATE player_ladders SET points = points - $1, wins = wins - 1 WHERE ladder_id = $2 AND player_id = $3`,
+            [old.winner_pts, old.ladder_id, pid]
+          );
+        }
+        for (const pid of oldLoserIds) {
+          await client.query(
+            `UPDATE player_ladders SET points = points - $1, losses = losses - 1 WHERE ladder_id = $2 AND player_id = $3`,
+            [old.loser_pts, old.ladder_id, pid]
+          );
+        }
+      }
+
+      // Apply new points
+      if (isNowDraw) {
+        for (const pid of [...newWinnerIds, ...newLoserIds]) {
+          await client.query(
+            `UPDATE player_ladders SET points = points + $1 WHERE ladder_id = $2 AND player_id = $3`,
+            [draw_pts, old.ladder_id, pid]
+          );
+        }
+      } else {
+        for (const pid of newWinnerIds) {
+          await client.query(
+            `UPDATE player_ladders SET points = points + $1, wins = wins + 1 WHERE ladder_id = $2 AND player_id = $3`,
+            [win_pts, old.ladder_id, pid]
+          );
+        }
+        for (const pid of newLoserIds) {
+          await client.query(
+            `UPDATE player_ladders SET points = points + $1, losses = losses + 1 WHERE ladder_id = $2 AND player_id = $3`,
+            [loss_pts, old.ladder_id, pid]
+          );
+        }
+      }
+
+      await client.query(
+        `UPDATE matches SET
+           winner_id = $1, winner_partner_id = $2,
+           loser_id  = $3, loser_partner_id  = $4,
+           winner_pts = $5, loser_pts = $6,
+           score = $7, court = $8, played_at = $9
+         WHERE id = $10`,
+        [
+          newWinnerId, newWinnerPartnerId || null,
+          newLoserId,  newLoserPartnerId  || null,
+          newWinnerPts, newLoserPts,
+          score?.trim() || (isNowDraw ? 'Draw' : '—'),
+          court?.trim() || null,
+          playedAt ? new Date(playedAt) : new Date(),
+          matchId,
+        ]
+      );
+
+      await client.query('COMMIT');
+      return res.status(200).json({ updated: matchId });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('PUT /api/matches error:', err);
+      return res.status(500).json({ error: 'Failed to update match' });
+    } finally {
+      client.release();
+    }
+  }
+
+  res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
   return res.status(405).json({ error: `Method ${req.method} not allowed` });
 }
