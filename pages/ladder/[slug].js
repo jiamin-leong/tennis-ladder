@@ -452,15 +452,49 @@ export default function LadderPage({ initialLadder, notFound }) {
             ))}
           </div>
 
+          {/* Playoff notice banner */}
+          {playoff && currentTab !== 'Playoff' && (
+            <div
+              onClick={() => setActiveTab('Playoff')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: 'linear-gradient(135deg, #1E4007, #3B6D11)',
+                borderRadius: 10, padding: '10px 14px', marginBottom: 16,
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 18 }}>🏆</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>
+                  Playoffs underway
+                </div>
+                <div style={{ fontSize: 12, color: '#A8D57A' }}>
+                  Ladder standings are frozen · No new match submissions
+                </div>
+              </div>
+              <span style={{ fontSize: 12, color: '#A8D57A' }}>View →</span>
+            </div>
+          )}
+
           {/* Content */}
           {loadingData ? (
             <div style={{ textAlign: 'center', padding: '4rem 0', color: '#9CA3AF' }}>Loading…</div>
           ) : (
             <>
-              {currentTab === 'Leaderboard' && <Leaderboard players={approvedPlayers} matchCount={matches.length} currentPlayerId={isCreator ? null : currentPlayer?.id} />}
+              {currentTab === 'Leaderboard' && <Leaderboard players={approvedPlayers} matchCount={matches.length} currentPlayerId={isCreator ? null : currentPlayer?.id} playoffActive={!!playoff} />}
               {currentTab === 'Matches'     && <Matches matches={matches} settings={ladder} isAdmin={isCreator} creatorId={isCreator ? currentPlayer?.id : null} onMatchDeleted={refreshData} />}
               {currentTab === 'My Stats'   && <MyStats currentPlayer={currentPlayer} allPlayers={approvedPlayers} ladderId={ladder?.id} />}
-              {currentTab === 'Submit Score' && <SubmitScore players={approvedPlayers} settings={ladder} ladderId={ladder?.id} onSubmit={refreshData} />}
+              {currentTab === 'Submit Score' && (
+                playoff ? (
+                  <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '2.5rem 1.5rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: 32, marginBottom: 12 }}>🏆</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#27500A', marginBottom: 6 }}>Playoffs are underway</div>
+                    <div style={{ fontSize: 13, color: '#9CA3AF' }}>Match submissions are closed. Head to the Playoff tab to follow the bracket.</div>
+                  </div>
+                ) : (
+                  <SubmitScore players={approvedPlayers} settings={ladder} ladderId={ladder?.id} onSubmit={refreshData} />
+                )
+              )}
               {currentTab === 'Players'    && <Players players={players} ladderId={ladder?.id} creatorId={currentPlayer?.id} onPlayersChange={refreshData} />}
               {currentTab === 'Settings'   && <Settings settings={ladder} ladderId={ladder?.id} requesterId={currentPlayer?.id} onSave={refreshData} />}
               {currentTab === 'FAQ'        && <FAQ />}

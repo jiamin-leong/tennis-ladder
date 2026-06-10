@@ -1,6 +1,6 @@
 import { profileEmoji } from '../lib/playerEmoji';
 
-export default function Leaderboard({ players, matchCount, currentPlayerId }) {
+export default function Leaderboard({ players, matchCount, currentPlayerId, playoffActive }) {
   function rankColor(i) {
     if (i === 0) return '#BA7517';
     if (i === 1) return '#888780';
@@ -12,6 +12,14 @@ export default function Leaderboard({ players, matchCount, currentPlayerId }) {
 
   return (
     <div>
+      {/* Frozen standings note */}
+      {playoffActive && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FAEEDA', border: '1px solid #F6D28D', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 13, color: '#92580A' }}>
+          <span>🔒</span>
+          <span><strong>Final standings</strong> — ladder is frozen while playoffs are underway.</span>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 24 }}>
         <div style={{ background: '#F9FAFB', borderRadius: 8, padding: '1rem' }}>
