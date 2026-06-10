@@ -42,7 +42,7 @@ export default function RegisterPage() {
 
   return (
     <>
-      <Head><title>Create profile — Court Ladder</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+      <Head><title>Create profile — LadderLive</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
       <div style={{ minHeight: '100vh', background: '#F3F4F6', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
         <div style={{ width: '100%', maxWidth: 400 }}>
           <div style={{ textAlign: 'center', marginBottom: 24 }}>

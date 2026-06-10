@@ -5,7 +5,7 @@ import { loadSession, saveSession, clearSession } from '../lib/auth';
 import CreateLadderModal from '../components/CreateLadderModal';
 import { profileEmoji } from '../lib/playerEmoji';
 
-const APP_NAME = 'Court Ladder';
+const APP_NAME = 'LadderLive';
 
 const MOCK_SCREENS = [
   {
@@ -100,7 +100,7 @@ function AppPreview() {
       </div>
       <div style={{ background: 'white', borderRadius: 20, boxShadow: '0 8px 32px rgba(0,0,0,0.12)', border: '1px solid #E5E7EB', overflow: 'hidden', minHeight: 260, position: 'relative' }}>
         <div style={{ background: '#EAF3DE', padding: '8px 14px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #D1FAE5' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#27500A' }}>🏆 Court Ladder</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#27500A' }}>🏆 LadderLive</div>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#3B6D11', background: 'white', border: '1px solid #A8D57A', borderRadius: 6, padding: '2px 8px' }}>{MOCK_SCREENS[mockScreen].label}</div>
         </div>
         <div style={{ position: 'relative', minHeight: 220 }}>
@@ -323,7 +323,7 @@ function LoginModal({ onClose, onSuccess }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}>
       <div style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: 380, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
         <div style={{ background: '#3B6D11', padding: '16px 20px' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Sign in to Court Ladder</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Sign in to LadderLive</div>
           <div style={{ fontSize: 12, color: '#A8D57A', marginTop: 2 }}>Enter your phone number to continue</div>
         </div>
         <div style={{ padding: '1.25rem 1.5rem' }}>

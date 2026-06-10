@@ -320,7 +320,7 @@ export default function LadderPage({ initialLadder, notFound }) {
   if (!currentPlayer) {
     return (
       <>
-        <Head><title>{ladder?.name || 'Court Ladder'}</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+        <Head><title>{ladder?.name || 'LadderLive'}</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
         <LadderPreview ladder={ladder} onSignIn={() => setShowLogin(true)} />
         {showLogin && <LoginModal onClose={() => setShowLogin(false)} onSuccess={handleLoggedIn} />}
       </>
@@ -340,7 +340,7 @@ export default function LadderPage({ initialLadder, notFound }) {
   if (membership === null) {
     return (
       <>
-        <Head><title>{ladder?.name || 'Court Ladder'}</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+        <Head><title>{ladder?.name || 'LadderLive'}</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
         <div style={{ minHeight: '100vh', background: '#F3F4F6' }}>
           <div style={{ maxWidth: 640, margin: '0 auto', padding: '2rem 1rem' }}>
             <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#6B7280', textDecoration: 'none', marginBottom: 20 }}>
@@ -364,7 +364,7 @@ export default function LadderPage({ initialLadder, notFound }) {
   if (membership === 'pending' || membership === 'rejected') {
     return (
       <>
-        <Head><title>{ladder?.name || 'Court Ladder'}</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+        <Head><title>{ladder?.name || 'LadderLive'}</title><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
         <StatusScreen ladder={ladder} status={membership} onLogout={logout} />
       </>
     );
@@ -381,7 +381,7 @@ export default function LadderPage({ initialLadder, notFound }) {
   return (
     <>
       <Head>
-        <title>{ladder?.name || 'Court Ladder'}</title>
+        <title>{ladder?.name || 'LadderLive'}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <div style={{ minHeight: '100vh', background: '#F3F4F6' }}>
