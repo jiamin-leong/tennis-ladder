@@ -183,21 +183,41 @@ function MatchCard({ match, isOrganiser, requesterId, onUpdated }) {
 // ── Generate UI ───────────────────────────────────────────────────────────────
 
 function GeneratePlayoff({ ladderId, requesterId, players, onGenerated }) {
-  const [topN, setTopN] = useState(8);
+  const sorted = [...players].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
+
+  const defaultN = [4, 8, 16].find(n => sorted.length >= n) ?? 0;
+  const [topN, setTopN] = useState(defaultN || 8);
+  // selected is a Set of player id strings, pre-seeded with top N
+  const [selected, setSelected] = useState(() => new Set(sorted.slice(0, defaultN || 8).map(p => String(p.id))));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const sorted = [...players].sort((a, b) => (b.points ?? 0) - (a.points ?? 0));
-  const qualifying = sorted.slice(0, topN);
-  const maxAllowed = [4, 8, 16].filter(n => sorted.length >= n);
+  function changeSize(n) {
+    setTopN(n);
+    // Re-default selection to top N; keep any manually added players if still ≤ n
+    setSelected(new Set(sorted.slice(0, n).map(p => String(p.id))));
+  }
+
+  function toggle(id) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
+
+  const selectionValid = selected.size === topN;
+  // Seeds assigned by points rank among selected players
+  const selectedPlayers = sorted.filter(p => selected.has(String(p.id)));
 
   async function generate() {
+    if (!selectionValid) return;
     setLoading(true); setError('');
     try {
       const res = await fetch('/api/playoffs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ladderId, topN, requesterId }),
+        body: JSON.stringify({ ladderId, requesterId, playerIds: selectedPlayers.map(p => p.id) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to generate');
@@ -216,54 +236,92 @@ function GeneratePlayoff({ ladderId, requesterId, players, onGenerated }) {
           Generate playoff bracket
         </div>
         <div style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 16 }}>
-          Top players from the ladder standings are seeded into a knockout bracket.
+          Select exactly {topN} players — seeded by their points ranking.
         </div>
 
-        {maxAllowed.length === 0 ? (
+        {sorted.length < 4 ? (
           <div style={{ fontSize: 13, color: '#A32D2D', background: '#FCEBEB', borderRadius: 8, padding: '10px 14px' }}>
             Need at least 4 approved players to generate a bracket.
           </div>
         ) : (
           <>
+            {/* Bracket size */}
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>How many players qualify?</div>
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>Bracket size</div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[4, 8, 16].map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setTopN(n)}
-                    disabled={sorted.length < n}
+                  <button key={n} type="button" onClick={() => changeSize(n)} disabled={sorted.length < n}
                     style={{
-                      flex: 1, padding: '8px 0', fontSize: 13, fontWeight: 600,
-                      borderRadius: 8, cursor: sorted.length < n ? 'not-allowed' : 'pointer',
+                      flex: 1, padding: '8px 0', fontSize: 13, fontWeight: 600, borderRadius: 8,
+                      cursor: sorted.length < n ? 'not-allowed' : 'pointer',
                       border: topN === n ? '2px solid #3B6D11' : '2px solid #E5E7EB',
                       background: topN === n ? '#EAF3DE' : sorted.length < n ? '#F9FAFB' : 'white',
                       color: topN === n ? '#27500A' : sorted.length < n ? '#D1D5DB' : '#6B7280',
                     }}
                   >
-                    Top {n}
+                    {n} players
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Qualifying players preview */}
+            {/* Player selection */}
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>Players who qualify</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontSize: 12, color: '#6B7280' }}>Select players</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: selected.size === topN ? '#3B6D11' : '#D97706' }}>
+                  {selected.size} / {topN} selected
+                </div>
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {qualifying.map((p, i) => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#F9FAFB', borderRadius: 7 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: i < 2 ? '#D97706' : '#9CA3AF', minWidth: 18 }}>
-                      #{i + 1}
-                    </span>
-                    <span style={{ fontSize: 14 }}>{profileEmoji(p.id)}</span>
-                    <span style={{ flex: 1, fontSize: 13, color: '#374151' }}>{p.preferred_name || p.name}</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#3B6D11' }}>{p.points ?? 0} pts</span>
-                  </div>
-                ))}
+                {sorted.map((p, i) => {
+                  const isSelected = selected.has(String(p.id));
+                  const seedAmongSelected = selectedPlayers.findIndex(sp => sp.id === p.id) + 1;
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => toggle(String(p.id))}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                        border: isSelected ? '1.5px solid #A8D57A' : '1.5px solid #E5E7EB',
+                        background: isSelected ? '#F2F9EA' : 'white',
+                        transition: 'all 0.1s',
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div style={{
+                        width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                        border: isSelected ? '2px solid #3B6D11' : '2px solid #D1D5DB',
+                        background: isSelected ? '#3B6D11' : 'white',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {isSelected && <span style={{ color: 'white', fontSize: 11, lineHeight: 1 }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', minWidth: 18, textAlign: 'right' }}>
+                        #{i + 1}
+                      </span>
+                      <span style={{ fontSize: 14 }}>{profileEmoji(p.id)}</span>
+                      <span style={{ flex: 1, fontSize: 13, color: '#374151', fontWeight: isSelected ? 500 : 400 }}>
+                        {p.preferred_name || p.name}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#9CA3AF' }}>{p.points ?? 0} pts</span>
+                      {isSelected && (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#3B6D11', background: '#EAF3DE', borderRadius: 4, padding: '1px 5px' }}>
+                          Seed {seedAmongSelected}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
+
+            {!selectionValid && selected.size > 0 && (
+              <div style={{ fontSize: 12, color: '#BA7517', background: '#FAEEDA', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
+                {selected.size < topN ? `Select ${topN - selected.size} more player${topN - selected.size > 1 ? 's' : ''}.` : `Too many selected — deselect ${selected.size - topN}.`}
+              </div>
+            )}
 
             {error && (
               <div style={{ fontSize: 13, color: '#A32D2D', background: '#FCEBEB', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
@@ -272,14 +330,15 @@ function GeneratePlayoff({ ladderId, requesterId, players, onGenerated }) {
             )}
 
             <button
-              onClick={generate} disabled={loading}
+              onClick={generate} disabled={loading || !selectionValid}
               style={{
                 width: '100%', padding: '11px', fontSize: 14, fontWeight: 600,
                 background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8,
-                cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1,
+                cursor: loading || !selectionValid ? 'default' : 'pointer',
+                opacity: loading || !selectionValid ? 0.5 : 1,
               }}
             >
-              {loading ? 'Generating…' : `Generate bracket (top ${topN}) →`}
+              {loading ? 'Generating…' : `Generate ${topN}-player bracket →`}
             </button>
           </>
         )}

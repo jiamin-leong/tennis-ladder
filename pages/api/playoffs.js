@@ -45,10 +45,12 @@ export default async function handler(req, res) {
 
   // ── POST — generate bracket ──────────────────────────────────────────────────
   if (req.method === 'POST') {
-    const { ladderId, topN, requesterId } = req.body;
-    const n = Number(topN);
-    if (!ladderId || !n) return res.status(400).json({ error: 'ladderId and topN required' });
-    if (![4, 8, 16].includes(n)) return res.status(400).json({ error: 'topN must be 4, 8, or 16' });
+    const { ladderId, playerIds, requesterId } = req.body;
+    if (!ladderId || !Array.isArray(playerIds) || playerIds.length === 0) {
+      return res.status(400).json({ error: 'ladderId and playerIds required' });
+    }
+    const n = playerIds.length;
+    if (![4, 8, 16].includes(n)) return res.status(400).json({ error: 'Must select exactly 4, 8, or 16 players' });
 
     const isCreator = await verifyCreator(ladderId, requesterId);
     if (!isCreator) return res.status(403).json({ error: 'Not authorised' });
@@ -61,15 +63,18 @@ export default async function handler(req, res) {
       );
       if (existing.length > 0) return res.status(409).json({ error: 'Active playoff already exists for this ladder' });
 
-      const { rows: topPlayers } = await client.query(
-        `SELECT player_id FROM player_ladders
-         WHERE ladder_id = $1 AND status = 'approved'
-         ORDER BY points DESC, player_id ASC LIMIT $2`,
-        [ladderId, n]
+      // Verify all playerIds are approved members and get their points for seeding
+      const { rows: members } = await client.query(
+        `SELECT player_id, points FROM player_ladders
+         WHERE ladder_id = $1 AND status = 'approved' AND player_id = ANY($2)
+         ORDER BY points DESC, player_id ASC`,
+        [ladderId, playerIds]
       );
-      if (topPlayers.length < n) {
-        return res.status(400).json({ error: `Need ${n} approved players, only ${topPlayers.length} available` });
+      if (members.length !== n) {
+        return res.status(400).json({ error: 'Some selected players are not approved members of this ladder' });
       }
+      // members is already sorted by points DESC — use as seed order
+      const seededPlayers = members;
 
       await client.query('BEGIN');
 
@@ -81,7 +86,7 @@ export default async function handler(req, res) {
       // Seed by rank: position i in bracketOrder gets seed i+1 → that player
       const order = bracketOrder(n);
       const playerBySeed = {};
-      topPlayers.forEach((p, i) => { playerBySeed[i + 1] = p.player_id; });
+      seededPlayers.forEach((p, i) => { playerBySeed[i + 1] = p.player_id; });
       const totalRounds = Math.log2(n);
 
       // Round 1 — seeded matchups
