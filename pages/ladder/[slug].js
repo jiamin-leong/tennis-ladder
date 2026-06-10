@@ -9,9 +9,10 @@ import Players from '../../components/Players';
 import Settings from '../../components/Settings';
 import MyStats from '../../components/MyStats';
 import FAQ from '../../components/FAQ';
+import Playoff from '../../components/Playoff';
 
 const MEMBER_TABS  = ['Leaderboard', 'Submit Score', 'Matches', 'FAQ'];
-const CREATOR_TABS = ['Leaderboard', 'Submit Score', 'Matches', 'Players', 'Settings'];
+const CREATOR_TABS = ['Leaderboard', 'Submit Score', 'Matches', 'Players', 'Settings', 'Playoff'];
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -173,6 +174,7 @@ export default function LadderPage({ initialLadder, notFound }) {
   const [membership, setMembership] = useState(null); // 'approved' | 'pending' | 'rejected' | null
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [playoff, setPlayoff] = useState(null);
   const [loadingData, setLoadingData] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -239,12 +241,14 @@ export default function LadderPage({ initialLadder, notFound }) {
     if (!l) return;
     setLoadingData(true);
     try {
-      const [pRes, mRes] = await Promise.all([
+      const [pRes, mRes, poRes] = await Promise.all([
         fetch(`/api/players?ladderId=${l.id}${isCreator ? '&status=all' : ''}`),
         fetch(`/api/matches?ladderId=${l.id}`),
+        fetch(`/api/playoffs?ladderId=${l.id}`),
       ]);
-      if (pRes.ok) setPlayers(await pRes.json());
-      if (mRes.ok) setMatches(await mRes.json());
+      if (pRes.ok)  setPlayers(await pRes.json());
+      if (mRes.ok)  setMatches(await mRes.json());
+      if (poRes.ok) setPlayoff(await poRes.json());
     } finally {
       setLoadingData(false);
     }
@@ -368,7 +372,8 @@ export default function LadderPage({ initialLadder, notFound }) {
 
   // Approved member or creator
   const isCreator = viewMode === 'creator';
-  const tabs = isCreator ? CREATOR_TABS : MEMBER_TABS;
+  const memberTabs = playoff ? [...MEMBER_TABS, 'Playoff'] : MEMBER_TABS;
+  const tabs = isCreator ? CREATOR_TABS : memberTabs;
   const currentTab = activeTab || tabs[0];
   const approvedPlayers = players.filter(p => p.status === 'approved');
   const displayName = currentPlayer?.preferred_name || currentPlayer?.name;
@@ -459,6 +464,16 @@ export default function LadderPage({ initialLadder, notFound }) {
               {currentTab === 'Players'    && <Players players={players} ladderId={ladder?.id} creatorId={currentPlayer?.id} onPlayersChange={refreshData} />}
               {currentTab === 'Settings'   && <Settings settings={ladder} ladderId={ladder?.id} requesterId={currentPlayer?.id} onSave={refreshData} />}
               {currentTab === 'FAQ'        && <FAQ />}
+              {currentTab === 'Playoff'    && (
+                <Playoff
+                  playoff={playoff}
+                  setPlayoff={setPlayoff}
+                  isOrganiser={isCreator}
+                  requesterId={currentPlayer?.id}
+                  ladderId={ladder?.id}
+                  players={approvedPlayers}
+                />
+              )}
             </>
           )}
         </div>
