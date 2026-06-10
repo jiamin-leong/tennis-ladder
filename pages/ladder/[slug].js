@@ -504,6 +504,7 @@ export default function LadderPage({ initialLadder, notFound }) {
                   setPlayoff={setPlayoff}
                   isOrganiser={isCreator}
                   requesterId={currentPlayer?.id}
+                  currentPlayerId={currentPlayer?.id}
                   ladderId={ladder?.id}
                   players={approvedPlayers}
                 />

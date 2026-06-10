@@ -147,8 +147,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Winner must be one of the two players' });
       }
 
+      const isParticipant = Number(requesterId) === match.player1_id || Number(requesterId) === match.player2_id;
       const isCreator = await verifyCreator(match.ladder_id, requesterId);
-      if (!isCreator) return res.status(403).json({ error: 'Not authorised' });
+      if (!isCreator && !isParticipant) return res.status(403).json({ error: 'Not authorised' });
 
       const totalRounds = Math.log2(match.player_count);
       const winnerSeed = Number(winnerId) === match.player1_id ? match.player1_seed : match.player2_seed;

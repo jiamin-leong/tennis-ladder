@@ -40,7 +40,7 @@ function PlayerSlot({ playerId, name, seed, isWinner, isLoser }) {
   );
 }
 
-function MatchCard({ match, isOrganiser, requesterId, onUpdated }) {
+function MatchCard({ match, isOrganiser, requesterId, currentPlayerId, onUpdated }) {
   const [recording, setRecording] = useState(false);
   const [winnerId, setWinnerId] = useState('');
   const [score, setScore] = useState('');
@@ -49,7 +49,9 @@ function MatchCard({ match, isOrganiser, requesterId, onUpdated }) {
   const [error, setError] = useState('');
 
   const hasResult  = !!match.winner_id;
-  const canRecord  = isOrganiser && !hasResult && match.player1_id && match.player2_id;
+  const isParticipant = currentPlayerId &&
+    (Number(currentPlayerId) === match.player1_id || Number(currentPlayerId) === match.player2_id);
+  const canRecord  = !hasResult && match.player1_id && match.player2_id && (isOrganiser || isParticipant);
 
   async function save() {
     if (!winnerId) return setError('Select a winner.');
@@ -349,7 +351,7 @@ function GeneratePlayoff({ ladderId, requesterId, players, onGenerated }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function Playoff({ playoff, setPlayoff, isOrganiser, requesterId, ladderId, players }) {
+export default function Playoff({ playoff, setPlayoff, isOrganiser, requesterId, currentPlayerId, ladderId, players }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -454,6 +456,7 @@ export default function Playoff({ playoff, setPlayoff, isOrganiser, requesterId,
               match={match}
               isOrganiser={isOrganiser}
               requesterId={requesterId}
+              currentPlayerId={currentPlayerId}
               onUpdated={setPlayoff}
             />
           ))}
