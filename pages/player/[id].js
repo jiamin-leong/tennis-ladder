@@ -32,11 +32,45 @@ export default function PlayerProfile() {
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ preferred_name: '', gender: '', preferred_locations: '' });
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     const session = loadSession();
     if (session?.player) setCurrentPlayer(session.player);
   }, []);
+
+  function startEdit() {
+    setEditForm({
+      preferred_name: player.preferred_name || '',
+      gender: player.gender || '',
+      preferred_locations: player.preferred_locations || '',
+    });
+    setEditError('');
+    setEditing(true);
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault();
+    setSaving(true); setEditError('');
+    try {
+      const res = await fetch(`/api/player/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requesterId: currentPlayer.id, ...editForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      setPlayer(p => ({ ...p, ...data.player }));
+      setEditing(false);
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -104,25 +138,71 @@ export default function PlayerProfile() {
 
           {/* Profile details */}
           <div style={{ background: 'white', borderRadius: 14, padding: '20px 20px', marginBottom: 12, border: '1px solid #F3F4F6' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>Profile details</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Profile details</div>
+              {isOwnProfile && !editing && (
+                <button onClick={startEdit} style={{ fontSize: 13, fontWeight: 500, color: '#3B6D11', background: '#EAF3DE', border: '1px solid #A8D57A', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
+                  Edit
+                </button>
+              )}
+            </div>
 
-            {[
-              { label: 'Full name',           value: player.name },
-              { label: 'Preferred name',      value: player.preferred_name || '—' },
-              { label: 'Gender',              value: player.gender || '—' },
-              { label: 'Preferred locations', value: player.preferred_locations || '—' },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 14, marginBottom: 14, borderBottom: '1px solid #F3F4F6' }}>
-                <div style={{ fontSize: 13, color: '#6B7280', flexShrink: 0, marginRight: 12 }}>{label}</div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#111827', textAlign: 'right' }}>{value}</div>
-              </div>
-            ))}
-
-            {isOwnProfile && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 2 }}>
-                <div style={{ fontSize: 13, color: '#6B7280' }}>Phone</div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{loadSession()?.phone || '—'}</div>
-              </div>
+            {editing ? (
+              <form onSubmit={saveEdit}>
+                {[
+                  { label: 'Preferred name', key: 'preferred_name', placeholder: 'e.g. Wei Jie' },
+                  { label: 'Preferred locations', key: 'preferred_locations', placeholder: 'e.g. Bishan, Kallang' },
+                ].map(({ label, key, placeholder }) => (
+                  <div key={key} style={{ marginBottom: 12 }}>
+                    <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>{label}</label>
+                    <input
+                      type="text"
+                      value={editForm[key]}
+                      onChange={e => setEditForm(f => ({ ...f, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                      style={{ margin: 0, fontSize: 14 }}
+                    />
+                  </div>
+                ))}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ display: 'block', fontSize: 13, color: '#6B7280', marginBottom: 4 }}>Gender</label>
+                  <select value={editForm.gender} onChange={e => setEditForm(f => ({ ...f, gender: e.target.value }))} style={{ margin: 0, fontSize: 14 }}>
+                    <option value="">Select…</option>
+                    {['Male', 'Female', 'Non-binary', 'Prefer not to say'].map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                {editError && (
+                  <div style={{ fontSize: 13, color: '#A32D2D', background: '#FCEBEB', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>{editError}</div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit" disabled={saving} style={{ flex: 1, padding: '10px', fontSize: 14, fontWeight: 600, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                    {saving ? 'Saving…' : 'Save changes'}
+                  </button>
+                  <button type="button" onClick={() => setEditing(false)} style={{ padding: '10px 16px', fontSize: 14, background: '#F3F4F6', color: '#6B7280', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                {[
+                  { label: 'Full name',           value: player.name },
+                  { label: 'Preferred name',      value: player.preferred_name || '—' },
+                  { label: 'Gender',              value: player.gender || '—' },
+                  { label: 'Preferred locations', value: player.preferred_locations || '—' },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: 14, marginBottom: 14, borderBottom: '1px solid #F3F4F6' }}>
+                    <div style={{ fontSize: 13, color: '#6B7280', flexShrink: 0, marginRight: 12 }}>{label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: '#111827', textAlign: 'right' }}>{value}</div>
+                  </div>
+                ))}
+                {isOwnProfile && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 2 }}>
+                    <div style={{ fontSize: 13, color: '#6B7280' }}>Phone</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: '#111827' }}>{loadSession()?.phone || '—'}</div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
