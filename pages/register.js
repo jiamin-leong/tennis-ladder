@@ -9,7 +9,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { phone, returnTo } = router.query;
 
-  const [form, setForm] = useState({ name: '', preferred_name: '', gender: '', preferred_locations: '' });
+  const [form, setForm] = useState({ name: '', preferred_name: '', gender: '', preferred_locations: '', pin: '', confirmPin: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -18,13 +18,15 @@ export default function RegisterPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) return setError('Full name is required.');
+    if (form.pin.length < 4) return setError('PIN must be at least 4 digits.');
+    if (form.pin !== form.confirmPin) return setError('PINs do not match.');
     setError('');
     setLoading(true);
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, ...form }),
+        body: JSON.stringify({ phone, name: form.name, preferred_name: form.preferred_name, gender: form.gender, preferred_locations: form.preferred_locations, pin: form.pin }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
@@ -74,6 +76,20 @@ export default function RegisterPage() {
               <div style={fieldStyle}>
                 <label style={labelStyle}>Preferred courts / locations</label>
                 <input type="text" value={form.preferred_locations} onChange={e => set('preferred_locations', e.target.value)} placeholder="e.g. Bishan, Kallang" />
+              </div>
+
+              <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 16, marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12 }}>Set your PIN</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>PIN (4+ digits)</label>
+                    <input type="password" inputMode="numeric" value={form.pin} onChange={e => set('pin', e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234" maxLength={8} />
+                  </div>
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Confirm PIN</label>
+                    <input type="password" inputMode="numeric" value={form.confirmPin} onChange={e => set('confirmPin', e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234" maxLength={8} />
+                  </div>
+                </div>
               </div>
 
               {error && (

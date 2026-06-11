@@ -76,31 +76,35 @@ function LadderPreview({ ladder, onSignIn }) {
 // ── Login modal ──────────────────────────────────────────────────────────────
 
 function LoginModal({ onClose, onSuccess }) {
+  const [step, setStep] = useState('phone'); // 'phone' | 'pin' | 'set-pin'
   const [phone, setPhone] = useState('');
+  const [fullPhone, setFullPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
 
-  async function handleSubmit(e) {
+  async function handlePhoneSubmit(e) {
     e.preventDefault();
     if (!phone.trim()) return;
     setLoading(true); setError('');
     const digits = phone.replace(/[\s\-().]/g, '').trim();
-    const fullPhone = digits.startsWith('65') ? digits : `65${digits}`;
+    const fp = digits.startsWith('65') ? digits : `65${digits}`;
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: fullPhone }),
+        body: JSON.stringify({ phone: fp }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Something went wrong');
-      if (data.exists) {
-        saveSession(fullPhone, data.player);
-        onSuccess(data.player, fullPhone);
-      } else {
-        router.push(`/register?phone=${encodeURIComponent(fullPhone)}&returnTo=${encodeURIComponent(router.asPath)}`);
+      if (!data.exists) {
+        router.push(`/register?phone=${encodeURIComponent(fp)}&returnTo=${encodeURIComponent(router.asPath)}`);
+        return;
       }
+      setFullPhone(fp);
+      setStep(data.hasPin ? 'pin' : 'set-pin');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -108,36 +112,118 @@ function LoginModal({ onClose, onSuccess }) {
     }
   }
 
+  async function handlePinSubmit(e) {
+    e.preventDefault();
+    if (!pin.trim()) return;
+    setLoading(true); setError('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone, pin, action: 'verify' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Incorrect PIN');
+      saveSession(fullPhone, data.player);
+      onSuccess(data.player, fullPhone);
+    } catch (err) {
+      setError(err.message);
+      setPin('');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSetPin(e) {
+    e.preventDefault();
+    if (pin.length < 4) return setError('PIN must be at least 4 digits.');
+    if (pin !== confirmPin) return setError('PINs do not match.');
+    setLoading(true); setError('');
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: fullPhone, pin, action: 'set-pin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to set PIN');
+      saveSession(fullPhone, data.player);
+      onSuccess(data.player, fullPhone);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const inputStyle = { flex: 1, border: 'none', outline: 'none', padding: '12px 12px', fontSize: 15, background: 'transparent', boxSizing: 'border-box' };
+  const btnStyle = (disabled) => ({
+    width: '100%', marginTop: 12, padding: '12px', fontSize: 14, fontWeight: 600,
+    background: disabled ? '#9CA3AF' : '#3B6D11', color: 'white',
+    border: 'none', borderRadius: 10, cursor: disabled ? 'default' : 'pointer',
+  });
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: '1rem' }}>
       <div style={{ background: 'white', borderRadius: 16, width: '100%', maxWidth: 380, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
         <div style={{ background: '#3B6D11', padding: '16px 20px' }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Sign in to continue</div>
-          <div style={{ fontSize: 12, color: '#A8D57A', marginTop: 2 }}>Enter your phone number</div>
+          <div style={{ fontSize: 12, color: '#A8D57A', marginTop: 2 }}>
+            {step === 'phone' && 'Enter your phone number'}
+            {step === 'pin' && 'Enter your PIN to sign in'}
+            {step === 'set-pin' && 'Create a PIN for your account'}
+          </div>
         </div>
         <div style={{ padding: '1.25rem 1.5rem' }}>
-          <form onSubmit={handleSubmit}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Phone number</label>
-            <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 10, background: 'white', overflow: 'hidden', paddingLeft: 14 }}>
-              <span style={{ fontSize: 15, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
-              <input
-                type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-                placeholder="9123 4567" autoFocus
-                style={{ flex: 1, border: 'none', outline: 'none', padding: '12px 12px', fontSize: 15, background: 'transparent', boxSizing: 'border-box' }}
-              />
-            </div>
-            {error && <div style={{ fontSize: 13, color: '#A32D2D', marginTop: 8 }}>{error}</div>}
-            <button type="submit" disabled={loading || !phone.trim()} style={{
-              width: '100%', marginTop: 12, padding: '12px', fontSize: 14, fontWeight: 600,
-              background: loading || !phone.trim() ? '#9CA3AF' : '#3B6D11', color: 'white',
-              border: 'none', borderRadius: 10, cursor: 'pointer',
-            }}>
-              {loading ? 'Checking…' : 'Continue →'}
-            </button>
-          </form>
-          <button onClick={onClose} style={{ marginTop: 10, width: '100%', background: 'none', border: 'none', color: '#9CA3AF', fontSize: 13, cursor: 'pointer' }}>
-            Cancel
-          </button>
+          {step === 'phone' && (
+            <form onSubmit={handlePhoneSubmit}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Phone number</label>
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 10, background: 'white', overflow: 'hidden', paddingLeft: 14 }}>
+                <span style={{ fontSize: 15, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="9123 4567" autoFocus style={inputStyle} />
+              </div>
+              {error && <div style={{ fontSize: 13, color: '#A32D2D', marginTop: 8 }}>{error}</div>}
+              <button type="submit" disabled={loading || !phone.trim()} style={btnStyle(loading || !phone.trim())}>
+                {loading ? 'Checking…' : 'Continue →'}
+              </button>
+              <button type="button" onClick={onClose} style={{ marginTop: 10, width: '100%', background: 'none', border: 'none', color: '#9CA3AF', fontSize: 13, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </form>
+          )}
+
+          {step === 'pin' && (
+            <form onSubmit={handlePinSubmit}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>PIN</label>
+              <input type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} placeholder="Enter your PIN" autoFocus maxLength={8}
+                style={{ width: '100%', padding: '12px 14px', fontSize: 22, letterSpacing: '0.3em', border: '1px solid #D1D5DB', borderRadius: 10, boxSizing: 'border-box', textAlign: 'center' }} />
+              {error && <div style={{ fontSize: 13, color: '#A32D2D', marginTop: 8 }}>{error}</div>}
+              <button type="submit" disabled={loading || !pin.trim()} style={btnStyle(loading || !pin.trim())}>
+                {loading ? 'Signing in…' : 'Sign in →'}
+              </button>
+              <button type="button" onClick={() => { setStep('phone'); setPin(''); setError(''); }} style={{ marginTop: 8, width: '100%', background: 'none', border: 'none', color: '#9CA3AF', fontSize: 13, cursor: 'pointer' }}>
+                ← Use a different number
+              </button>
+            </form>
+          )}
+
+          {step === 'set-pin' && (
+            <form onSubmit={handleSetPin}>
+              <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 14, background: '#F9FAFB', borderRadius: 8, padding: '10px 12px' }}>
+                You don't have a PIN yet. Set one to secure your account.
+              </div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>New PIN (4+ digits)</label>
+              <input type="password" inputMode="numeric" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234" autoFocus maxLength={8}
+                style={{ width: '100%', padding: '12px 14px', fontSize: 22, letterSpacing: '0.3em', border: '1px solid #D1D5DB', borderRadius: 10, boxSizing: 'border-box', textAlign: 'center', marginBottom: 10 }} />
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>Confirm PIN</label>
+              <input type="password" inputMode="numeric" value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 1234" maxLength={8}
+                style={{ width: '100%', padding: '12px 14px', fontSize: 22, letterSpacing: '0.3em', border: '1px solid #D1D5DB', borderRadius: 10, boxSizing: 'border-box', textAlign: 'center' }} />
+              {error && <div style={{ fontSize: 13, color: '#A32D2D', marginTop: 8 }}>{error}</div>}
+              <button type="submit" disabled={loading || !pin || !confirmPin} style={btnStyle(loading || !pin || !confirmPin)}>
+                {loading ? 'Saving…' : 'Set PIN & sign in →'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
