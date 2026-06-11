@@ -80,7 +80,7 @@ export default function PlayerProfile() {
         <div style={{ background: 'white', borderBottom: '1px solid #E5E7EB', position: 'sticky', top: 0, zIndex: 50 }}>
           <div style={{ maxWidth: 640, margin: '0 auto', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <a href="/" style={{ fontSize: 16, fontWeight: 800, color: '#27500A', textDecoration: 'none' }}>🏆 LadderLive</a>
-            <a href="/" style={{ fontSize: 13, color: '#6B7280', textDecoration: 'none' }}>← Home</a>
+            <button onClick={() => router.back()} style={{ fontSize: 13, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>← Back</button>
           </div>
         </div>
 
