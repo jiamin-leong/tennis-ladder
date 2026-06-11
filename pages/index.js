@@ -466,8 +466,8 @@ export default function HomePage() {
           });
           const data = await res.json();
           if (res.ok && data.exists) {
-            player = data.player;
-            setCurrentPlayer({ ...data.player, phone: session.phone });
+            player = session.player;
+            setCurrentPlayer({ ...session.player, phone: session.phone });
           } else {
             clearSession();
           }

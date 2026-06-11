@@ -282,7 +282,7 @@ export default function LadderPage({ initialLadder, notFound }) {
         });
         const data = await res.json();
         if (res.ok && data.exists) {
-          setCurrentPlayer({ ...data.player, phone: session.phone });
+          setCurrentPlayer({ ...session.player, phone: session.phone });
         } else {
           clearSession();
         }
