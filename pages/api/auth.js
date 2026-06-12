@@ -16,6 +16,7 @@ export default async function handler(req, res) {
   if (!phone?.trim()) return res.status(400).json({ error: 'Phone number required' });
 
   const normalized = normalizePhone(phone);
+  if (normalized.length !== 10) return res.status(400).json({ error: 'Phone number must be 8 digits' });
 
   try {
     const { rows } = await pool.query(

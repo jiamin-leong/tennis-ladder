@@ -302,6 +302,7 @@ function LoginModal({ onClose, onSuccess }) {
     setLoading(true); setError('');
     const digits = phone.replace(/[\s\-().]/g, '').trim();
     const fp = digits.startsWith('65') ? digits : `65${digits}`;
+    if (fp.length !== 10) { setError('Phone number must be 8 digits.'); setLoading(false); return; }
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',

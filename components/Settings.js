@@ -210,11 +210,11 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
     setCoPhoneError('');
     const digits = newCoPhone.replace(/[\s\-().+]/g, '').trim();
     if (!digits) return;
-    if (!/^\d{6,12}$/.test(digits)) {
-      setCoPhoneError('Enter a valid phone number.');
+    const normalized = digits.startsWith('65') ? digits : `65${digits}`;
+    if (normalized.length !== 10) {
+      setCoPhoneError('Phone number must be 8 digits.');
       return;
     }
-    const normalized = digits.startsWith('65') ? digits : `65${digits}`;
     if (form.co_organiser_phones.includes(normalized)) {
       setCoPhoneError('This number is already added.');
       return;

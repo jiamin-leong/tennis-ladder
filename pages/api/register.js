@@ -22,6 +22,7 @@ export default async function handler(req, res) {
   }
 
   const normalized = normalizePhone(phone);
+  if (normalized.length !== 10) return res.status(400).json({ error: 'Phone number must be 8 digits' });
 
   const existing = await pool.query('SELECT id FROM players WHERE phone = $1', [normalized]);
   if (existing.rows.length > 0) {
