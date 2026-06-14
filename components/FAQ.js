@@ -40,7 +40,18 @@ export default function FAQ() {
           </button>
           {open === i && (
             <div style={{ padding: '0 16px 14px', fontSize: 13, color: '#6B7280', lineHeight: 1.6, borderTop: '1px solid #F3F4F6' }}>
-              <div style={{ paddingTop: 12 }}>{item.answer}</div>
+              <div style={{ paddingTop: 12 }}>
+                {item.answer.split(/\n\n+/).map((para, pi) => (
+                  <p key={pi} style={{ margin: 0, marginBottom: 10 }}>
+                    {para.split('\n').map((line, li, arr) => (
+                      <span key={li}>
+                        {line}
+                        {li < arr.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </p>
+                ))}
+              </div>
             </div>
           )}
         </div>
