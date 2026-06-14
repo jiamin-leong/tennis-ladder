@@ -13,9 +13,14 @@ async function run() {
     await client.query('BEGIN');
 
     // 1. Update winner_pts / loser_pts on every match
+    // sets_played = 1 → pro-set (2 pts), 0 or 2+ → full set (4 pts)
     await client.query(`
       UPDATE matches
-      SET winner_pts = CASE WHEN score = 'Draw' THEN $1::int ELSE $2::int END,
+      SET winner_pts = CASE
+            WHEN score = 'Draw' THEN $1::int
+            WHEN sets_played = 1 THEN 2
+            ELSE $2::int
+          END,
           loser_pts  = CASE WHEN score = 'Draw' THEN $1::int ELSE $3::int END
     `, [DRAW_PTS, WIN_PTS, LOSS_PTS]);
     console.log('✅ Updated match point values');

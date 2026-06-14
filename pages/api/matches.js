@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { p1Id, p1PartnerId, p2Id, p2PartnerId, winnerId, score, court, playedAt, ladderId } = req.body;
+    const { p1Id, p1PartnerId, p2Id, p2PartnerId, winnerId, score, matchType, court, playedAt, ladderId } = req.body;
 
     if (!p1Id || !p2Id || !winnerId || !ladderId) {
       return res.status(400).json({ error: 'p1Id, p2Id, winnerId, and ladderId are required' });
@@ -68,7 +68,10 @@ export default async function handler(req, res) {
       [ladderId]
     );
     if (ladderRes.rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });
-    const { win_pts = 3, loss_pts = 0, draw_pts = 1 } = ladderRes.rows[0];
+    const { win_pts = 4, loss_pts = 1, draw_pts = 1 } = ladderRes.rows[0];
+    const isProSet = matchType === 'proset';
+    const effectiveWinPts = isProSet ? 2 : win_pts;
+    const setsPlayed = isProSet ? 1 : 2;
 
     // Resolve who is winner/loser
     let resolvedWinnerId, resolvedWinnerPartnerId, resolvedLoserId, resolvedLoserPartnerId;
@@ -89,7 +92,7 @@ export default async function handler(req, res) {
       resolvedLoserPartnerId = p1PartnerId || null;
     }
 
-    const winnerPts = isDraw ? draw_pts : win_pts;
+    const winnerPts = isDraw ? draw_pts : effectiveWinPts;
     const loserPts  = isDraw ? draw_pts : loss_pts;
     const scoreStr  = score?.trim() || (isDraw ? 'Draw' : '—');
 
@@ -105,7 +108,7 @@ export default async function handler(req, res) {
         [
           resolvedWinnerId, resolvedWinnerPartnerId,
           resolvedLoserId,  resolvedLoserPartnerId,
-          scoreStr, 0, winnerPts, loserPts,
+          scoreStr, setsPlayed, winnerPts, loserPts,
           court?.trim() || null,
           playedAt ? new Date(playedAt) : new Date(),
           ladderId,

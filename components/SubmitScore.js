@@ -20,9 +20,12 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const winPts  = settings?.win_pts  ?? 3;
-  const lossPts = settings?.loss_pts ?? 0;
+  const [matchType, setMatchType] = useState('full'); // 'full' | 'proset'
+
+  const winPts  = settings?.win_pts  ?? 4;
+  const lossPts = settings?.loss_pts ?? 1;
   const drawPts = settings?.draw_pts ?? 1;
+  const effectiveWinPts = matchType === 'proset' ? 2 : winPts;
 
   // All selected IDs (to prevent double-picking)
   const selectedIds = [p1a, p1b, p2a, p2b].filter(Boolean);
@@ -65,6 +68,8 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
     if (!winner)       return setError('Please select who won.');
     if (sets[0].p1 === '' || sets[0].p2 === '')
       return setError('Please enter the Set 1 score.');
+    if (matchType === 'full' && (sets[1].p1 === '' || sets[1].p2 === ''))
+      return setError('Please enter the Set 2 score.');
 
     if (isDoubles && p1a === p2a) return setError('Players must be different.');
     if (!isDoubles && p1a === p2a) return setError('Players must be different.');
@@ -76,6 +81,7 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
         p2Id: Number(p2a),
         winnerId: winner,
         score: buildScoreString(),
+        matchType,
         court,
         playedAt,
         ladderId: ladderId ? Number(ladderId) : undefined,
@@ -98,7 +104,7 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
 
       const msg = winner === 'draw'
         ? `✅ Draw recorded! All players get +${drawPts} pts`
-        : `✅ Match recorded! Winners get +${winPts} pts`;
+        : `✅ Match recorded! Winners get +${effectiveWinPts} pts`;
       alert(msg);
 
       setP1a(''); setP1b(''); setP2a(''); setP2b('');
@@ -181,6 +187,33 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
           </div>
         )}
 
+        {/* Match type */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Match format</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { value: 'full',   label: 'Full sets', sub: `+${winPts} pts` },
+              { value: 'proset', label: 'Pro-set',   sub: '+2 pts' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setMatchType(opt.value)}
+                style={{
+                  flex: 1, padding: '10px 6px', fontSize: 13, fontWeight: 600,
+                  borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
+                  border: matchType === opt.value ? '2px solid #3B6D11' : '2px solid #E5E7EB',
+                  background: matchType === opt.value ? '#EAF3DE' : 'white',
+                  color: matchType === opt.value ? '#27500A' : '#6B7280',
+                }}
+              >
+                <div style={{ marginBottom: 2 }}>{opt.label}</div>
+                <div style={{ fontSize: 11, fontWeight: 400, color: matchType === opt.value ? '#3B6D11' : '#9CA3AF' }}>{opt.sub} (winner)</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Who won */}
         {bothSidesReady && (
           <div style={{ marginBottom: 16 }}>
@@ -188,15 +221,15 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
             <div style={{ display: 'flex', gap: 8 }}>
               {isDoubles ? (
                 <>
-                  <WinnerBtn value="p1side" label={teamLabel(1) || 'Team 1'} pts={winPts} />
+                  <WinnerBtn value="p1side" label={teamLabel(1) || 'Team 1'} pts={effectiveWinPts} />
                   <WinnerBtn value="draw"   label="Draw"                      pts={drawPts} />
-                  <WinnerBtn value="p2side" label={teamLabel(2) || 'Team 2'} pts={winPts} />
+                  <WinnerBtn value="p2side" label={teamLabel(2) || 'Team 2'} pts={effectiveWinPts} />
                 </>
               ) : (
                 <>
-                  <WinnerBtn value={p1a}    label={p1Player?.name || 'Player 1'} pts={winPts} />
+                  <WinnerBtn value={p1a}    label={p1Player?.name || 'Player 1'} pts={effectiveWinPts} />
                   <WinnerBtn value="draw"   label="Draw"                          pts={drawPts} />
-                  <WinnerBtn value={p2a}    label={p2Player?.name || 'Player 2'} pts={winPts} />
+                  <WinnerBtn value={p2a}    label={p2Player?.name || 'Player 2'} pts={effectiveWinPts} />
                 </>
               )}
             </div>
@@ -205,15 +238,19 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
 
         {/* Set scores */}
         <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Set scores</label>
+          <label style={labelStyle}>{matchType === 'proset' ? 'Score' : 'Set scores'}</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sets.map((s, i) => (
+            {sets.map((s, i) => {
+              if (matchType === 'proset' && i > 0) return null;
+              return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 13, color: '#6B7280', minWidth: 44 }}>
-                  Set {i + 1}
+                  {matchType === 'proset' ? 'Pro-set' : `Set ${i + 1}`}
                   {i === 0
                     ? <span style={{ color: '#A32D2D', marginLeft: 2 }}>*</span>
-                    : <span style={{ color: '#9CA3AF', fontSize: 11, marginLeft: 4 }}>opt.</span>
+                    : i === 1 && matchType === 'full'
+                      ? <span style={{ color: '#A32D2D', marginLeft: 2 }}>*</span>
+                      : <span style={{ color: '#9CA3AF', fontSize: 11, marginLeft: 4 }}>opt.</span>
                   }
                 </span>
                 <input
@@ -230,7 +267,8 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
                   style={{ width: 64, textAlign: 'center', margin: 0, fontSize: 22, fontWeight: 600, padding: '10px 6px', border: '1.5px solid #D1D5DB', borderRadius: 10, MozAppearance: 'textfield' }}
                 />
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
