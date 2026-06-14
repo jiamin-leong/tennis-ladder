@@ -74,11 +74,12 @@ export default function Matches({ matches, settings, isAdmin, creatorId, onMatch
         <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
           Points per result
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {[
-            { label: 'Win',  pts: winPts,  color: '#3B6D11', bg: '#EAF3DE' },
-            { label: 'Draw', pts: drawPts, color: '#BA7517', bg: '#FAEEDA' },
-            { label: 'Loss', pts: lossPts, color: '#A32D2D', bg: '#FCEBEB' },
+            { label: 'Full set win',  pts: winPts,  color: '#3B6D11', bg: '#EAF3DE' },
+            { label: 'Pro-set win',   pts: 2,        color: '#3B6D11', bg: '#EAF3DE' },
+            { label: 'Draw',          pts: drawPts,  color: '#BA7517', bg: '#FAEEDA' },
+            { label: 'Loss',          pts: lossPts,  color: '#A32D2D', bg: '#FCEBEB' },
           ].map(({ label, pts, color, bg }) => (
             <div key={label} style={{ background: bg, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
               <div style={{ fontSize: 22, fontWeight: 700, color }}>{pts}</div>

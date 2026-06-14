@@ -366,13 +366,23 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
             <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
               Fixed at creation
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
               {[
                 ['Sport',  form.sport === 'pickleball' ? '🏓 Pickleball' : '🎾 Tennis'],
                 ['Format', form.format === 'doubles' ? 'Doubles' : 'Singles'],
-                ['Win',    `${form.win_pts} pts`],
-                ['Draw',   `${form.draw_pts} pts`],
-                ['Loss',   `${form.loss_pts} pts`],
+              ].map(([label, value]) => (
+                <div key={label} style={{ textAlign: 'center', background: 'white', borderRadius: 8, padding: '10px 6px', border: '1px solid #E5E7EB' }}>
+                  <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[
+                ['Full set win', `${form.win_pts} pts`],
+                ['Pro-set win',  '2 pts'],
+                ['Draw',         `${form.draw_pts} pts`],
+                ['Loss',         `${form.loss_pts} pts`],
               ].map(([label, value]) => (
                 <div key={label} style={{ textAlign: 'center', background: 'white', borderRadius: 8, padding: '10px 6px', border: '1px solid #E5E7EB' }}>
                   <div style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>{label}</div>
