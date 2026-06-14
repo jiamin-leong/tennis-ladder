@@ -121,17 +121,20 @@ export default async function handler(req, res) {
       : [];
 
     try {
+      const hasPoster = 'poster_image' in req.body;
       const { rows } = await pool.query(
         `UPDATE ladders SET name=$1, start_date=$2, end_date=$3, allow_join=$4,
          win_pts=$5, loss_pts=$6, draw_pts=$7, format=$8, location=$9, is_public=$10,
-         co_organiser_phones=$11, poster_image=$12, updated_at=NOW()
-         WHERE id=$13 RETURNING *`,
+         co_organiser_phones=$11,
+         ${hasPoster ? 'poster_image=$12,' : ''}
+         updated_at=NOW()
+         WHERE id=$${hasPoster ? 13 : 12} RETURNING *`,
         [name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts,
          format === 'doubles' ? 'doubles' : 'singles',
          location?.trim() || null,
          is_public !== false,
          cleanPhones,
-         poster_image ?? null,
+         ...(hasPoster ? [poster_image ?? null] : []),
          id]
       );
       if (rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });
