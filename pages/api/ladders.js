@@ -1,13 +1,9 @@
 import pool from '../../lib/db';
 import { verifyCreator } from '../../lib/verifyCreator';
 
-function generateSlug(name) {
-  const base = name.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .trim()
-    .replace(/\s+/g, '-');
-  const suffix = Date.now().toString(36).slice(-5);
-  return `${base}-${suffix}`;
+function generateSlug() {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
 const LADDER_SELECT_BASE = `
@@ -76,7 +72,7 @@ export default async function handler(req, res) {
     if (!name?.trim() || !start_date || !end_date) {
       return res.status(400).json({ error: 'name, start_date, end_date required' });
     }
-    const slug = generateSlug(name.trim());
+    const slug = generateSlug();
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
