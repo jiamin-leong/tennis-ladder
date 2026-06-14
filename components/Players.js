@@ -108,7 +108,7 @@ export default function Players({ players, ladderId, creatorId, onPlayersChange 
             Awaiting approval ({pending.length})
           </div>
           {pending.map((p, i) => (
-            <PlayerRow key={p.player_id ?? p.id} player={p} i={i} ladderId={ladderId} showApprove showReject={false} onStatusChange={updateStatus} />
+            <PlayerRow key={p.player_id ?? p.id} player={p} i={i} ladderId={ladderId} showApprove showReject onStatusChange={updateStatus} />
           ))}
         </div>
       )}

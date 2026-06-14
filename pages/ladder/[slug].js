@@ -49,6 +49,50 @@ function LadderPreviewStats({ ladder }) {
 
 // ── Logged-out preview ──────────────────────────────────────────────────────
 
+function PosterBanner() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+          background: 'white', border: '1px solid #D1D5DB', borderRadius: 12,
+          padding: '12px 16px', cursor: 'pointer', marginBottom: 12, textAlign: 'left',
+        }}
+      >
+        <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#F3F4F6' }}>
+          <img src="/ladder-poster.jpg" alt="Ladder poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>View ladder poster</div>
+          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Tap to view full size →</div>
+        </div>
+      </button>
+
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+        >
+          <button
+            onClick={() => setOpen(false)}
+            style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: 'white', fontSize: 15, fontWeight: 600, borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}
+          >
+            ✕ Close
+          </button>
+          <img
+            src="/ladder-poster.jpg"
+            alt="Ladder poster"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '88vh', borderRadius: 12, objectFit: 'contain', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 function LadderPreview({ ladder, onSignIn }) {
   return (
     <div style={{ minHeight: '100vh', background: '#F3F4F6' }}>
@@ -57,6 +101,7 @@ function LadderPreview({ ladder, onSignIn }) {
           ← All ladders
         </a>
         <LadderPreviewStats ladder={ladder} />
+        <PosterBanner />
         <div style={{ background: 'white', borderRadius: 12, padding: '20px 24px', marginTop: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ fontSize: 14, color: '#374151', marginBottom: 16, textAlign: 'center' }}>
             Sign in to view standings and request to join this ladder.
@@ -434,6 +479,7 @@ export default function LadderPage({ initialLadder, notFound }) {
               ← All ladders
             </a>
             <LadderPreviewStats ladder={ladder} />
+            <PosterBanner />
             <button
               onClick={requestJoin}
               disabled={joiningId}
@@ -515,6 +561,8 @@ export default function LadderPage({ initialLadder, notFound }) {
               Log out
             </button>
           </div>
+
+          <PosterBanner />
 
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid #E5E7EB', marginBottom: 20, overflowX: 'auto' }}>
