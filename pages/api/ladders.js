@@ -113,7 +113,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PUT') {
-    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, co_organiser_phones, requesterId } = req.body;
+    const { id, name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, co_organiser_phones, poster_image, requesterId } = req.body;
     if (!id) return res.status(400).json({ error: 'id required' });
 
     const isCreator = await verifyCreator(id, requesterId);
@@ -128,13 +128,14 @@ export default async function handler(req, res) {
       const { rows } = await pool.query(
         `UPDATE ladders SET name=$1, start_date=$2, end_date=$3, allow_join=$4,
          win_pts=$5, loss_pts=$6, draw_pts=$7, format=$8, location=$9, is_public=$10,
-         co_organiser_phones=$11, updated_at=NOW()
-         WHERE id=$12 RETURNING *`,
+         co_organiser_phones=$11, poster_image=$12, updated_at=NOW()
+         WHERE id=$13 RETURNING *`,
         [name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts,
          format === 'doubles' ? 'doubles' : 'singles',
          location?.trim() || null,
          is_public !== false,
          cleanPhones,
+         poster_image ?? null,
          id]
       );
       if (rows.length === 0) return res.status(404).json({ error: 'Ladder not found' });

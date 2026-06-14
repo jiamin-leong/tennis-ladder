@@ -49,8 +49,9 @@ function LadderPreviewStats({ ladder }) {
 
 // ── Logged-out preview ──────────────────────────────────────────────────────
 
-function PosterBanner() {
+function PosterBanner({ src }) {
   const [open, setOpen] = useState(false);
+  if (!src) return null;
   return (
     <>
       <button
@@ -62,7 +63,7 @@ function PosterBanner() {
         }}
       >
         <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: '#F3F4F6' }}>
-          <img src="/ladder-poster.jpg" alt="Ladder poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={src} alt="Ladder poster" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>View ladder poster</div>
@@ -82,7 +83,7 @@ function PosterBanner() {
             ✕ Close
           </button>
           <img
-            src="/ladder-poster.jpg"
+            src={src}
             alt="Ladder poster"
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: '100%', maxHeight: '88vh', borderRadius: 12, objectFit: 'contain', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}
@@ -101,7 +102,7 @@ function LadderPreview({ ladder, onSignIn }) {
           ← All ladders
         </a>
         <LadderPreviewStats ladder={ladder} />
-        <PosterBanner />
+        <PosterBanner src={ladder?.poster_image} />
         <div style={{ background: 'white', borderRadius: 12, padding: '20px 24px', marginTop: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ fontSize: 14, color: '#374151', marginBottom: 16, textAlign: 'center' }}>
             Sign in to view standings and request to join this ladder.
@@ -479,7 +480,7 @@ export default function LadderPage({ initialLadder, notFound }) {
               ← All ladders
             </a>
             <LadderPreviewStats ladder={ladder} />
-            <PosterBanner />
+            <PosterBanner src={ladder?.poster_image} />
             <button
               onClick={requestJoin}
               disabled={joiningId}
@@ -562,7 +563,7 @@ export default function LadderPage({ initialLadder, notFound }) {
             </button>
           </div>
 
-          <PosterBanner />
+          <PosterBanner src={ladder?.poster_image} />
 
           {/* Tabs */}
           <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid #E5E7EB', marginBottom: 20, overflowX: 'auto' }}>

@@ -184,8 +184,61 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
   const [saved, setSaved] = useState(false);
   const [newCoPhone, setNewCoPhone] = useState('');
   const [coPhoneError, setCoPhoneError] = useState('');
+  const [posterImage, setPosterImage] = useState(null);
+  const [posterSaving, setPosterSaving] = useState(false);
+  const [posterSaved, setPosterSaved] = useState(false);
 
   const isPrimaryCreator = parseInt(settings?.creator_id) === parseInt(requesterId);
+
+  useEffect(() => {
+    if (settings?.poster_image) setPosterImage(settings.poster_image);
+  }, [settings?.poster_image]);
+
+  function handlePosterFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setPosterImage(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  async function savePoster() {
+    setPosterSaving(true);
+    try {
+      const res = await fetch('/api/ladders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ladderId, ...form, poster_image: posterImage, requesterId }),
+      });
+      if (!res.ok) throw new Error('Failed to save poster');
+      setPosterSaved(true);
+      setTimeout(() => setPosterSaved(false), 3000);
+      onSave?.();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setPosterSaving(false);
+    }
+  }
+
+  async function removePoster() {
+    if (!confirm('Remove the poster from this ladder?')) return;
+    setPosterSaving(true);
+    try {
+      const res = await fetch('/api/ladders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ladderId, ...form, poster_image: null, requesterId }),
+      });
+      if (!res.ok) throw new Error('Failed to remove poster');
+      setPosterImage(null);
+      onSave?.();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setPosterSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (settings) {
@@ -406,6 +459,41 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
             {left} <span style={{ fontSize: 16, fontWeight: 400, color: '#6B7280' }}>days remaining</span>
           </div>
         )}
+      </div>
+
+      {/* Poster */}
+      <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '1.25rem', marginTop: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+          Ladder poster
+        </div>
+        {posterImage ? (
+          <div style={{ marginBottom: 12 }}>
+            <img src={posterImage} alt="Poster preview" style={{ width: '100%', borderRadius: 8, objectFit: 'cover', maxHeight: 200 }} />
+          </div>
+        ) : (
+          <div style={{ border: '2px dashed #D1D5DB', borderRadius: 8, padding: '24px', textAlign: 'center', color: '#9CA3AF', fontSize: 13, marginBottom: 12 }}>
+            No poster uploaded yet
+          </div>
+        )}
+        <input type="file" accept="image/*" onChange={handlePosterFile} style={{ fontSize: 13, marginBottom: 10, display: 'block' }} />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={savePoster}
+            disabled={posterSaving || !posterImage}
+            style={{ flex: 1, padding: '9px', fontSize: 13, fontWeight: 600, background: posterSaved ? '#639922' : '#3B6D11', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', opacity: (posterSaving || !posterImage) ? 0.6 : 1 }}
+          >
+            {posterSaved ? '✓ Saved!' : posterSaving ? 'Saving…' : 'Save poster'}
+          </button>
+          {posterImage && (
+            <button
+              onClick={removePoster}
+              disabled={posterSaving}
+              style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, background: '#FCEBEB', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 8, cursor: 'pointer' }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
       </div>
 
       {/* FAQ editor */}
