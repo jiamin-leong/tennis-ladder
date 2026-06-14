@@ -5,3 +5,5 @@ node_modules/
 out/
 .vercel
 .env*
+.DS_Store
+public/ladder-poster.*
