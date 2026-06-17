@@ -184,6 +184,7 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
   const [saved, setSaved] = useState(false);
   const [newCoPhone, setNewCoPhone] = useState('');
   const [coPhoneError, setCoPhoneError] = useState('');
+  const [coPhoneSaving, setCoPhoneSaving] = useState(false);
   const [posterImage, setPosterImage] = useState(null);
   const [posterSaving, setPosterSaving] = useState(false);
   const [posterSaved, setPosterSaved] = useState(false);
@@ -259,7 +260,24 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
     }
   }, [settings]);
 
-  function addCoPhone() {
+  async function saveCoPhones(phones) {
+    setCoPhoneSaving(true);
+    try {
+      const res = await fetch('/api/ladders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ladderId, ...form, co_organiser_phones: phones, requesterId }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      onSave?.();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCoPhoneSaving(false);
+    }
+  }
+
+  async function addCoPhone() {
     setCoPhoneError('');
     const digits = newCoPhone.replace(/[\s\-().+]/g, '').trim();
     if (!digits) return;
@@ -272,12 +290,16 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
       setCoPhoneError('This number is already added.');
       return;
     }
-    setForm(f => ({ ...f, co_organiser_phones: [...f.co_organiser_phones, normalized] }));
+    const updated = [...form.co_organiser_phones, normalized];
+    setForm(f => ({ ...f, co_organiser_phones: updated }));
     setNewCoPhone('');
+    await saveCoPhones(updated);
   }
 
-  function removeCoPhone(phone) {
-    setForm(f => ({ ...f, co_organiser_phones: f.co_organiser_phones.filter(p => p !== phone) }));
+  async function removeCoPhone(phone) {
+    const updated = form.co_organiser_phones.filter(p => p !== phone);
+    setForm(f => ({ ...f, co_organiser_phones: updated }));
+    await saveCoPhones(updated);
   }
 
   function daysLeft() {
@@ -408,7 +430,8 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
                       <button
                         type="button"
                         onClick={() => removeCoPhone(phone)}
-                        style={{ fontSize: 12, background: 'none', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}
+                        disabled={coPhoneSaving}
+                        style={{ fontSize: 12, background: 'none', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '3px 10px', cursor: coPhoneSaving ? 'default' : 'pointer', opacity: coPhoneSaving ? 0.5 : 1 }}
                       >
                         Remove
                       </button>
@@ -425,15 +448,17 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
                     onChange={e => { setNewCoPhone(e.target.value); setCoPhoneError(''); }}
                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCoPhone())}
                     placeholder="8489 7670"
+                    disabled={coPhoneSaving}
                     style={{ flex: 1, border: 'none', outline: 'none', margin: 0, padding: '10px 10px', fontSize: 14, background: 'transparent' }}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={addCoPhone}
-                  style={{ fontSize: 13, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  disabled={coPhoneSaving}
+                  style={{ fontSize: 13, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: coPhoneSaving ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: coPhoneSaving ? 0.7 : 1 }}
                 >
-                  + Add
+                  {coPhoneSaving ? 'Saving…' : '+ Add'}
                 </button>
               </div>
               {coPhoneError && (
