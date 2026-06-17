@@ -48,6 +48,11 @@ const schema = `
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
+  CREATE TABLE IF NOT EXISTS _migrations (
+    name TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ DEFAULT NOW()
+  );
+
   -- Seed default settings if none exist
   INSERT INTO ladder_settings (name, start_date, end_date)
   SELECT 'My Court Ladder', CURRENT_DATE, CURRENT_DATE + INTERVAL '90 days'
