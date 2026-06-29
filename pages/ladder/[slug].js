@@ -11,8 +11,8 @@ import MyStats from '../../components/MyStats';
 import FAQ from '../../components/FAQ';
 import Playoff from '../../components/Playoff';
 
-const MEMBER_TABS  = ['Leaderboard', 'Submit Score', 'Matches', 'FAQ'];
-const CREATOR_TABS = ['Leaderboard', 'Submit Score', 'Matches', 'Players', 'Settings', 'Playoff'];
+const MEMBER_TABS  = ['Leaderboard', 'Submit Score', 'History', 'FAQ'];
+const CREATOR_TABS = ['Leaderboard', 'Submit Score', 'History', 'Players', 'Settings', 'Playoff'];
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -618,7 +618,7 @@ export default function LadderPage({ initialLadder, notFound }) {
           ) : (
             <>
               {currentTab === 'Leaderboard' && <Leaderboard players={approvedPlayers} matchCount={matches.length} currentPlayerId={isCreator ? null : currentPlayer?.id} playoffActive={!!playoff} />}
-              {currentTab === 'Matches'     && <Matches matches={matches} settings={ladder} isAdmin={isCreator} creatorId={isCreator ? currentPlayer?.id : null} onMatchDeleted={refreshData} />}
+              {currentTab === 'History'     && <Matches matches={matches} settings={ladder} isAdmin={isCreator} creatorId={isCreator ? currentPlayer?.id : null} onMatchDeleted={refreshData} />}
               {currentTab === 'My Stats'   && <MyStats currentPlayer={currentPlayer} allPlayers={approvedPlayers} ladderId={ladder?.id} />}
               {currentTab === 'Submit Score' && (
                 playoff ? (

@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { loadSession, saveSession, clearSession } from '../lib/auth';
 import CreateLadderModal from '../components/CreateLadderModal';
 import { profileEmoji } from '../lib/playerEmoji';
+import OpenGames from '../components/OpenGames';
 
 const APP_NAME = 'LadderLive';
 
@@ -446,12 +447,35 @@ function LoginModal({ onClose, onSuccess }) {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const [currentPlayer, setCurrentPlayer] = useState(null);
   const [publicLadders, setPublicLadders] = useState([]);
   const [myLadders, setMyLadders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [activeView, setActiveView] = useState('ladders');
+  const [showViewMenu, setShowViewMenu] = useState(false);
+  const [initialMatchId, setInitialMatchId] = useState(null);
+  const viewMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const { match } = router.query;
+    if (match) {
+      setActiveView('matches');
+      setInitialMatchId(parseInt(match));
+    }
+  }, [router.isReady, router.query]);
+
+  useEffect(() => {
+    if (!showViewMenu) return;
+    function handleClick(e) {
+      if (viewMenuRef.current && !viewMenuRef.current.contains(e.target)) setShowViewMenu(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showViewMenu]);
 
   useEffect(() => {
     async function init() {
@@ -493,9 +517,13 @@ export default function HomePage() {
     init();
   }, []);
 
+  const [showMatchesToast, setShowMatchesToast] = useState(false);
+
   function handleLoggedIn(player, phone) {
     setCurrentPlayer({ ...player, phone });
     setShowLogin(false);
+    setShowMatchesToast(true);
+    setTimeout(() => setShowMatchesToast(false), 6000);
     fetch(`/api/ladders?playerId=${player.id}`)
       .then(r => r.ok ? r.json() : [])
       .then(setMyLadders);
@@ -540,9 +568,41 @@ export default function HomePage() {
         {/* Top nav */}
         <div style={{ background: currentPlayer ? 'white' : '#1E4007', borderBottom: currentPlayer ? '1px solid #E5E7EB' : 'none', position: 'sticky', top: 0, zIndex: 50 }}>
           <div style={{ maxWidth: 680, margin: '0 auto', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: currentPlayer ? '#27500A' : 'white' }}>🏆 {APP_NAME}</div>
+            {/* Logo + inline toast */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ position: 'relative' }} ref={viewMenuRef}>
+                <button
+                  onClick={() => currentPlayer && setShowViewMenu(v => !v)}
+                  style={{ fontSize: 20, fontWeight: 800, color: currentPlayer ? '#27500A' : 'white', background: 'none', border: 'none', cursor: currentPlayer ? 'pointer' : 'default', padding: 0, display: 'flex', alignItems: 'center', gap: 8 }}
+                >
+                  🏆 {APP_NAME}
+                  {currentPlayer && (
+                    <span style={{ fontSize: 16, color: showViewMenu ? '#3B6D11' : '#6B7280', lineHeight: 1 }}>☰</span>
+                  )}
+                </button>
+              {showViewMenu && currentPlayer && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, background: 'white', border: '1px solid #E5E7EB', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 160, overflow: 'hidden' }}>
+                  {[['ladders', '🏆 Ladders'], ['matches', '🎾 Matches']].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setActiveView(key); setShowViewMenu(false); }}
+                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 16px', fontSize: 14, fontWeight: activeView === key ? 600 : 400, color: activeView === key ? '#3B6D11' : '#374151', background: activeView === key ? '#EAF3DE' : 'white', border: 'none', cursor: 'pointer' }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              </div>
+              {showMatchesToast && !showViewMenu && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEFCE8', border: '1px solid #FEF08A', borderRadius: 20, padding: '4px 10px 4px 8px', fontSize: 12, color: '#713F12', whiteSpace: 'nowrap' }}>
+                  <span>🎾 Check out matches here!</span>
+                  <button onClick={() => setShowMatchesToast(false)} style={{ background: 'none', border: 'none', color: '#A16207', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
+                </div>
+              )}
+            </div>
             {currentPlayer ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <a href={`/player/${currentPlayer.id}`} style={{ fontSize: 12, color: '#3B6D11', textDecoration: 'none', fontWeight: 600, background: '#EAF3DE', border: '1px solid #A8D57A', borderRadius: 6, padding: '5px 12px', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   {profileEmoji(currentPlayer.id)} {displayName}
                 </a>
@@ -595,8 +655,13 @@ export default function HomePage() {
             </>
           )}
 
-          {/* My Ladders */}
-          {currentPlayer && (
+          {/* Matches view */}
+          {currentPlayer && activeView === 'matches' && (
+            <OpenGames currentPlayer={currentPlayer} ladderId={null} initialGameId={initialMatchId} />
+          )}
+
+          {/* Ladders view */}
+          {currentPlayer && activeView === 'ladders' && (
             <div style={{ marginBottom: 32 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>My ladders</div>
