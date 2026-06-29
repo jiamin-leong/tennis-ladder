@@ -8,21 +8,25 @@ function generateSlug() {
 
 const LADDER_SELECT_BASE = `
   SELECT l.*,
+    MAX(p.phone) AS creator_phone,
     COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'approved') AS player_count,
     COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'pending')  AS pending_count,
     COUNT(DISTINCT m.id) AS match_count
   FROM ladders l
+  LEFT JOIN players p ON p.id = l.creator_id
   LEFT JOIN player_ladders pl ON pl.ladder_id = l.id
   LEFT JOIN matches m ON m.ladder_id = l.id
 `;
 
 const LADDER_SELECT_MY = `
   SELECT l.*,
+    MAX(p.phone) AS creator_phone,
     COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'approved') AS player_count,
     COUNT(DISTINCT pl.player_id) FILTER (WHERE pl.status = 'pending')  AS pending_count,
     COUNT(DISTINCT m.id) AS match_count,
     my.status AS my_status
   FROM ladders l
+  LEFT JOIN players p ON p.id = l.creator_id
   LEFT JOIN player_ladders pl ON pl.ladder_id = l.id
   LEFT JOIN matches m ON m.ladder_id = l.id
 `;
@@ -68,7 +72,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, sport, creator_id } = req.body;
+    const { name, start_date, end_date, allow_join, win_pts, loss_pts, draw_pts, format, location, is_public, sport, creator_id, join_as_player } = req.body;
     if (!name?.trim() || !start_date || !end_date) {
       return res.status(400).json({ error: 'name, start_date, end_date required' });
     }
@@ -90,8 +94,7 @@ export default async function handler(req, res) {
           creator_id || null,
         ]
       );
-      // Auto-add creator as approved member of their own ladder
-      if (creator_id) {
+      if (creator_id && join_as_player !== false) {
         await client.query(
           `INSERT INTO player_ladders (player_id, ladder_id, status) VALUES ($1, $2, 'approved') ON CONFLICT DO NOTHING`,
           [creator_id, rows[0].id]

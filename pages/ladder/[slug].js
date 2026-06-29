@@ -632,7 +632,7 @@ export default function LadderPage({ initialLadder, notFound }) {
                 )
               )}
               {currentTab === 'Players'    && <Players players={players} ladderId={ladder?.id} creatorId={currentPlayer?.id} onPlayersChange={refreshData} />}
-              {currentTab === 'Settings'   && <Settings settings={ladder} ladderId={ladder?.id} requesterId={currentPlayer?.id} onSave={refreshData} />}
+              {currentTab === 'Settings'   && <Settings settings={ladder} ladderId={ladder?.id} requesterId={currentPlayer?.id} currentPlayerPhone={currentPlayer?.phone} onSave={refreshData} />}
               {currentTab === 'FAQ'        && <FAQ />}
               {currentTab === 'Playoff'    && (
                 <Playoff

@@ -9,6 +9,7 @@ export default function CreateLadderModal({ onClose, onCreated, creatorId }) {
   const [form, setForm] = useState({
     name: '', location: '', start_date: today, end_date: '',
     win_pts: 3, loss_pts: 0, draw_pts: 1, format: 'singles', sport: 'tennis',
+    join_as_player: true,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -102,6 +103,19 @@ export default function CreateLadderModal({ onClose, onCreated, creatorId }) {
               </div>
             ))}
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.join_as_player}
+              onChange={e => set('join_as_player', e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: '#3B6D11', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 13, color: '#374151' }}>
+              Join this ladder as a player
+              <span style={{ display: 'block', fontSize: 11, color: '#9CA3AF', fontWeight: 400 }}>Uncheck if you're organising but not playing</span>
+            </span>
+          </label>
 
           {error && <div style={{ fontSize: 13, color: '#A32D2D', marginBottom: 10 }}>{error}</div>}
 

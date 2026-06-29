@@ -165,7 +165,71 @@ function formatPhoneDisplay(digits) {
   return digits;
 }
 
-export default function Settings({ settings, onSave, ladderId, requesterId }) {
+function SlideToggle({ checked, onChange, disabled }) {
+  return (
+    <label style={{ position: 'relative', display: 'inline-block', width: 40, height: 22, cursor: disabled ? 'default' : 'pointer', flexShrink: 0 }}>
+      <input
+        type="checkbox"
+        checked={!!checked}
+        onChange={onChange}
+        disabled={disabled}
+        style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+      />
+      <span style={{
+        position: 'absolute', inset: 0,
+        background: checked ? '#3B6D11' : '#D1D5DB',
+        borderRadius: 22,
+        transition: 'background 0.2s',
+        opacity: disabled ? 0.5 : 1,
+      }}>
+        <span style={{
+          position: 'absolute',
+          top: 3, left: checked ? 21 : 3,
+          width: 16, height: 16,
+          background: 'white',
+          borderRadius: '50%',
+          transition: 'left 0.2s',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+        }} />
+      </span>
+    </label>
+  );
+}
+
+function OrgRow({ phone, badge, isMe, isPlayer, toggling, onToggle, onRemove, removeSaving }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB', border: `1px solid ${isMe ? '#A8D57A' : '#E5E7EB'}`, borderRadius: 8, padding: '8px 12px', gap: 8 }}>
+      <span style={{ fontSize: 13, color: '#374151', fontFamily: 'monospace', flex: 1, minWidth: 0 }}>
+        📞 {formatPhoneDisplay(phone)}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: isMe ? 1 : 0.5 }}>
+          <span style={{ fontSize: 11, color: isPlayer ? '#3B6D11' : '#9CA3AF' }}>
+            {isPlayer ? 'Playing' : 'Not playing'}
+          </span>
+          <SlideToggle checked={!!isPlayer} onChange={onToggle || (() => {})} disabled={!isMe || toggling} />
+        </div>
+        {badge && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', background: '#F3F4F6', border: '1px solid #E5E7EB', borderRadius: 5, padding: '2px 8px' }}>
+            {badge}
+          </span>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={removeSaving}
+            style={{ fontSize: 12, background: 'none', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '3px 10px', cursor: removeSaving ? 'default' : 'pointer', opacity: removeSaving ? 0.5 : 1 }}
+          >
+            Remove
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Settings({ settings, onSave, ladderId, requesterId, currentPlayerPhone }) {
   const [form, setForm] = useState({
     name: '',
     start_date: '',
@@ -188,12 +252,35 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
   const [posterImage, setPosterImage] = useState(null);
   const [posterSaving, setPosterSaving] = useState(false);
   const [posterSaved, setPosterSaved] = useState(false);
+  const [isPlayer, setIsPlayer] = useState(null);
+  const [playerToggling, setPlayerToggling] = useState(false);
+  const [orgPlayingMap, setOrgPlayingMap] = useState({});
 
   const isPrimaryCreator = parseInt(settings?.creator_id) === parseInt(requesterId);
 
   useEffect(() => {
     if (settings?.poster_image) setPosterImage(settings.poster_image);
   }, [settings?.poster_image]);
+
+  useEffect(() => {
+    if (!ladderId || !requesterId) return;
+    fetch(`/api/player-ladders?ladderId=${ladderId}&playerId=${requesterId}`)
+      .then(r => r.json())
+      .then(rows => setIsPlayer(rows.length > 0 && rows[0].status === 'approved'))
+      .catch(() => setIsPlayer(false));
+  }, [ladderId, requesterId]);
+
+  useEffect(() => {
+    if (!ladderId) return;
+    fetch(`/api/players?ladderId=${ladderId}&status=all`)
+      .then(r => r.json())
+      .then(players => {
+        const map = {};
+        players.forEach(p => { if (p.phone) map[p.phone] = p.status === 'approved'; });
+        setOrgPlayingMap(map);
+      })
+      .catch(() => {});
+  }, [ladderId]);
 
   function handlePosterFile(e) {
     const file = e.target.files?.[0];
@@ -414,58 +501,103 @@ export default function Settings({ settings, onSave, ladderId, requesterId }) {
             </div>
           </div>
 
-          {isPrimaryCreator && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Co-organiser access</label>
-              <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 8 }}>
-                Phone numbers listed here will have full organiser permissions.
-              </div>
-              {form.co_organiser_phones.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
-                  {form.co_organiser_phones.map(phone => (
-                    <div key={phone} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 12px' }}>
-                      <span style={{ fontSize: 13, color: '#374151', fontFamily: 'monospace' }}>
-                        📞 {formatPhoneDisplay(phone)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeCoPhone(phone)}
-                        disabled={coPhoneSaving}
-                        style={{ fontSize: 12, background: 'none', color: '#A32D2D', border: '1px solid #FECACA', borderRadius: 6, padding: '3px 10px', cursor: coPhoneSaving ? 'default' : 'pointer', opacity: coPhoneSaving ? 0.5 : 1 }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 8, background: 'white', overflow: 'hidden', paddingLeft: 12 }}>
-                  <span style={{ fontSize: 14, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
-                  <input
-                    type="text"
-                    value={newCoPhone}
-                    onChange={e => { setNewCoPhone(e.target.value); setCoPhoneError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCoPhone())}
-                    placeholder="8489 7670"
-                    disabled={coPhoneSaving}
-                    style={{ flex: 1, border: 'none', outline: 'none', margin: 0, padding: '10px 10px', fontSize: 14, background: 'transparent' }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={addCoPhone}
-                  disabled={coPhoneSaving}
-                  style={{ fontSize: 13, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: coPhoneSaving ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: coPhoneSaving ? 0.7 : 1 }}
-                >
-                  {coPhoneSaving ? 'Saving…' : '+ Add'}
-                </button>
-              </div>
-              {coPhoneError && (
-                <div style={{ fontSize: 12, color: '#A32D2D', marginTop: 4 }}>{coPhoneError}</div>
-              )}
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Organiser access</label>
+            <div style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 8 }}>
+              Phone numbers listed here have full organiser permissions. Toggle to also play in the ladder.
             </div>
-          )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: isPrimaryCreator ? 8 : 0 }}>
+              {settings?.creator_phone && (() => {
+                const isMe = isPrimaryCreator;
+                const playing = isMe ? isPlayer : (orgPlayingMap[settings.creator_phone] ?? false);
+                return (
+                  <OrgRow
+                    phone={settings.creator_phone}
+                    badge="Creator"
+                    isMe={isMe}
+                    isPlayer={playing}
+                    toggling={isMe ? playerToggling : false}
+                    onToggle={isMe ? async () => {
+                      setPlayerToggling(true);
+                      try {
+                        if (isPlayer) {
+                          await fetch('/api/player-ladders', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: requesterId, ladderId, requesterId }) });
+                          setIsPlayer(false);
+                          setOrgPlayingMap(m => ({ ...m, [settings.creator_phone]: false }));
+                        } else {
+                          await fetch('/api/player-ladders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: requesterId, ladderId, requesterId }) });
+                          setIsPlayer(true);
+                          setOrgPlayingMap(m => ({ ...m, [settings.creator_phone]: true }));
+                        }
+                        onSave?.();
+                      } catch { alert('Failed to update player status'); }
+                      finally { setPlayerToggling(false); }
+                    } : undefined}
+                  />
+                );
+              })()}
+              {form.co_organiser_phones.map(phone => {
+                const isMe = currentPlayerPhone === phone;
+                const playing = isMe ? isPlayer : (orgPlayingMap[phone] ?? false);
+                return (
+                  <OrgRow
+                    key={phone}
+                    phone={phone}
+                    isMe={isMe}
+                    isPlayer={playing}
+                    toggling={isMe ? playerToggling : false}
+                    onToggle={isMe ? async () => {
+                      setPlayerToggling(true);
+                      try {
+                        if (isPlayer) {
+                          await fetch('/api/player-ladders', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: requesterId, ladderId, requesterId }) });
+                          setIsPlayer(false);
+                          setOrgPlayingMap(m => ({ ...m, [phone]: false }));
+                        } else {
+                          await fetch('/api/player-ladders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: requesterId, ladderId, requesterId }) });
+                          setIsPlayer(true);
+                          setOrgPlayingMap(m => ({ ...m, [phone]: true }));
+                        }
+                        onSave?.();
+                      } catch { alert('Failed to update player status'); }
+                      finally { setPlayerToggling(false); }
+                    } : undefined}
+                    onRemove={isPrimaryCreator ? () => removeCoPhone(phone) : null}
+                    removeSaving={coPhoneSaving}
+                  />
+                );
+              })}
+            </div>
+            {isPrimaryCreator && (
+              <>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #D1D5DB', borderRadius: 8, background: 'white', overflow: 'hidden', paddingLeft: 12 }}>
+                    <span style={{ fontSize: 14, color: '#374151', whiteSpace: 'nowrap', userSelect: 'none' }}>+65</span>
+                    <input
+                      type="text"
+                      value={newCoPhone}
+                      onChange={e => { setNewCoPhone(e.target.value); setCoPhoneError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addCoPhone())}
+                      placeholder="8489 7670"
+                      disabled={coPhoneSaving}
+                      style={{ flex: 1, border: 'none', outline: 'none', margin: 0, padding: '10px 10px', fontSize: 14, background: 'transparent' }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addCoPhone}
+                    disabled={coPhoneSaving}
+                    style={{ fontSize: 13, background: '#3B6D11', color: 'white', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: coPhoneSaving ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: coPhoneSaving ? 0.7 : 1 }}
+                  >
+                    {coPhoneSaving ? 'Saving…' : '+ Add'}
+                  </button>
+                </div>
+                {coPhoneError && (
+                  <div style={{ fontSize: 12, color: '#A32D2D', marginTop: 4 }}>{coPhoneError}</div>
+                )}
+              </>
+            )}
+          </div>
 
           <button
             type="submit"
