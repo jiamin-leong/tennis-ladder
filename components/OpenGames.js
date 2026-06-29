@@ -43,7 +43,7 @@ export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
   const [participants, setParticipants] = useState([]);
   const [loadingParts, setLoadingParts] = useState(false);
   const [actioning, setActioning] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', date: '', time: '', end_time: '', location: '', map_link: '', max_players: 2, ladder_id: ladderId || '' });
+  const [form, setForm] = useState({ title: '', description: '', date: '', time: '08:00', end_time: '', location: '', map_link: '', max_players: 2, ladder_id: ladderId || '' });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [templates, setTemplates] = useState([]);
@@ -215,7 +215,7 @@ export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
       });
       if (!res.ok) throw new Error('Failed to create game');
       await loadGames();
-      setForm({ title: '', description: '', date: '', time: '', end_time: '', location: '', map_link: '', max_players: 2, ladder_id: ladderId || '' });
+      setForm({ title: '', description: '', date: '', time: '08:00', end_time: '', location: '', map_link: '', max_players: 2, ladder_id: ladderId || '' });
       setView('list');
     } catch (err) {
       setFormError(err.message);
@@ -461,20 +461,19 @@ export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
             <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Tuesday night doubles" style={inputStyle} />
           </div>
 
+          <div style={{ marginBottom: 12 }}>
+            <label style={labelStyle}>Date *</label>
+            <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} />
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
-              <label style={labelStyle}>Date *</label>
-              <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} />
+              <label style={labelStyle}>Start time *</label>
+              <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} style={inputStyle} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={labelStyle}>Start time *</label>
-                <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>End time</label>
-                <input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} style={inputStyle} />
-              </div>
+            <div>
+              <label style={labelStyle}>End time</label>
+              <input type="time" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} style={inputStyle} />
             </div>
           </div>
 
@@ -579,20 +578,18 @@ export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
                 <label style={labelStyle}>Title *</label>
                 <input value={editForm.title || ''} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} style={inputStyle} />
               </div>
+              <div style={{ marginBottom: 10 }}>
+                <label style={labelStyle}>Date *</label>
+                <input type="date" value={editForm.date || ''} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
                 <div>
-                  <label style={labelStyle}>Date *</label>
-                  <input type="date" value={editForm.date || ''} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} style={inputStyle} />
+                  <label style={labelStyle}>Start time *</label>
+                  <input type="time" value={editForm.time || ''} onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))} style={inputStyle} />
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                  <div>
-                    <label style={labelStyle}>Start time *</label>
-                    <input type="time" value={editForm.time || ''} onChange={e => setEditForm(f => ({ ...f, time: e.target.value }))} style={inputStyle} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>End time</label>
-                    <input type="time" value={editForm.end_time || ''} onChange={e => setEditForm(f => ({ ...f, end_time: e.target.value }))} style={inputStyle} />
-                  </div>
+                <div>
+                  <label style={labelStyle}>End time</label>
+                  <input type="time" value={editForm.end_time || ''} onChange={e => setEditForm(f => ({ ...f, end_time: e.target.value }))} style={inputStyle} />
                 </div>
               </div>
               <div style={{ marginBottom: 10 }}>
