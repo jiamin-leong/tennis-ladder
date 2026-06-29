@@ -522,8 +522,12 @@ export default function HomePage() {
   function handleLoggedIn(player, phone) {
     setCurrentPlayer({ ...player, phone });
     setShowLogin(false);
-    setShowMatchesToast(true);
-    setTimeout(() => setShowMatchesToast(false), 6000);
+    setShowViewMenu(true);
+    setTimeout(() => {
+      setShowViewMenu(false);
+      setShowMatchesToast(true);
+      setTimeout(() => setShowMatchesToast(false), 6000);
+    }, 2500);
     fetch(`/api/ladders?playerId=${player.id}`)
       .then(r => r.ok ? r.json() : [])
       .then(setMyLadders);
@@ -568,18 +572,25 @@ export default function HomePage() {
         {/* Top nav */}
         <div style={{ background: currentPlayer ? 'white' : '#1E4007', borderBottom: currentPlayer ? '1px solid #E5E7EB' : 'none', position: 'sticky', top: 0, zIndex: 50 }}>
           <div style={{ maxWidth: 680, margin: '0 auto', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {/* Logo + inline toast */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ position: 'relative' }} ref={viewMenuRef}>
-                <button
-                  onClick={() => currentPlayer && setShowViewMenu(v => !v)}
-                  style={{ fontSize: 20, fontWeight: 800, color: currentPlayer ? '#27500A' : 'white', background: 'none', border: 'none', cursor: currentPlayer ? 'pointer' : 'default', padding: 0, display: 'flex', alignItems: 'center', gap: 8 }}
-                >
-                  🏆 {APP_NAME}
-                  {currentPlayer && (
-                    <span style={{ fontSize: 16, color: showViewMenu ? '#3B6D11' : '#6B7280', lineHeight: 1 }}>☰</span>
-                  )}
-                </button>
+            {/* Logo — doubles as view switcher when logged in */}
+            <div style={{ position: 'relative' }} ref={viewMenuRef}>
+              <button
+                onClick={() => currentPlayer && setShowViewMenu(v => !v)}
+                style={{ fontSize: 20, fontWeight: 800, color: currentPlayer ? '#27500A' : 'white', background: showViewMenu ? '#EAF3DE' : 'none', border: 'none', cursor: currentPlayer ? 'pointer' : 'default', padding: '4px 8px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 8, margin: '-4px -8px' }}
+              >
+                🏆 {APP_NAME}
+                {currentPlayer && (
+                  <span style={{ fontSize: 16, color: showViewMenu ? '#3B6D11' : '#6B7280', lineHeight: 1 }}>☰</span>
+                )}
+              </button>
+              {showMatchesToast && !showViewMenu && currentPlayer && (
+                <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 100 }}>
+                  <div style={{ background: '#FEFCE8', border: '1px solid #FEF08A', borderRadius: 10, padding: '12px 14px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 13, color: '#713F12' }}>🎾 Check out matches here!</span>
+                    <button onClick={() => setShowMatchesToast(false)} style={{ background: 'none', border: 'none', color: '#A16207', cursor: 'pointer', fontSize: 14, padding: 0, lineHeight: 1 }}>✕</button>
+                  </div>
+                </div>
+              )}
               {showViewMenu && currentPlayer && (
                 <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, background: 'white', border: '1px solid #E5E7EB', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 100, minWidth: 160, overflow: 'hidden' }}>
                   {[['ladders', '🏆 Ladders'], ['matches', '🎾 Matches']].map(([key, label]) => (
@@ -591,13 +602,6 @@ export default function HomePage() {
                       {label}
                     </button>
                   ))}
-                </div>
-              )}
-              </div>
-              {showMatchesToast && !showViewMenu && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FEFCE8', border: '1px solid #FEF08A', borderRadius: 20, padding: '4px 10px 4px 8px', fontSize: 12, color: '#713F12', whiteSpace: 'nowrap' }}>
-                  <span>🎾 Check out matches here!</span>
-                  <button onClick={() => setShowMatchesToast(false)} style={{ background: 'none', border: 'none', color: '#A16207', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>✕</button>
                 </div>
               )}
             </div>
