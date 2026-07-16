@@ -131,7 +131,7 @@ export default async function handler(req, res) {
         for (const pid of winnerIds) {
           await client.query(
             `UPDATE player_ladders SET points = points + $1, wins = wins + 1 WHERE ladder_id = $2 AND player_id = $3`,
-            [win_pts, ladderId, pid]
+            [winnerPts, ladderId, pid]
           );
         }
         for (const pid of loserIds) {
