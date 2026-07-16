@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const isDraw = winnerId === 'draw';
     // For doubles, winnerId is 'p1side' or 'p2side'; for singles it's the actual player id
     const isDoublesWin = winnerId === 'p1side' || winnerId === 'p2side';
-    if (!isDraw && !isDoublesWin && winnerId !== p1Id && winnerId !== p2Id) {
+    if (!isDraw && !isDoublesWin && String(winnerId) !== String(p1Id) && String(winnerId) !== String(p2Id)) {
       return res.status(400).json({ error: 'Invalid winnerId' });
     }
 
