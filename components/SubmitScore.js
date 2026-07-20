@@ -50,6 +50,22 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
       .join(', ') || '—';
   }
 
+  // Which side the entered score says won: 1, 2, or 0 if level/undecided
+  function scoreWinnerSide() {
+    const filled = sets.filter(s => s.p1 !== '' && s.p2 !== '');
+    if (filled.length === 0) return 0;
+    if (matchType === 'proset') {
+      const { p1, p2 } = filled[0];
+      return Number(p1) > Number(p2) ? 1 : Number(p2) > Number(p1) ? 2 : 0;
+    }
+    let won1 = 0, won2 = 0;
+    for (const s of filled) {
+      if (Number(s.p1) > Number(s.p2)) won1++;
+      else if (Number(s.p2) > Number(s.p1)) won2++;
+    }
+    return won1 > won2 ? 1 : won2 > won1 ? 2 : 0;
+  }
+
   function teamLabel(side) {
     if (!isDoubles) return null;
     const a = side === 1 ? p1a : p2a;
@@ -159,6 +175,17 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
   const p1Player = players.find(p => String(p.id) === p1a);
   const p2Player = players.find(p => String(p.id) === p2a);
 
+  const sideName = side => (isDoubles ? teamLabel(side) : (side === 1 ? p1Player?.name : p2Player?.name));
+  const mismatchHint = (() => {
+    if (!bothSidesReady || !winner) return '';
+    const scoreSide = scoreWinnerSide();
+    if (scoreSide === 0) return '';
+    const declaredSide = winner === 'draw' ? 0 : isDoubles ? (winner === 'p1side' ? 1 : 2) : (winner === p1a ? 1 : 2);
+    if (scoreSide === declaredSide) return '';
+    if (declaredSide === 0) return 'Heads up: you selected a draw, but this score shows a winner.';
+    return `Heads up: this score reads as a win for ${sideName(scoreSide)}. Enter ${sideName(1)}'s games in the left box.`;
+  })();
+
   return (
     <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, padding: '1.25rem' }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
@@ -239,7 +266,24 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
         {/* Set scores */}
         <div style={{ marginBottom: 16 }}>
           <label style={labelStyle}>{matchType === 'proset' ? 'Score' : 'Set scores'}</label>
+          {bothSidesReady && (
+            <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>
+              Enter scores in the same order as the selectors above — {sideName(1)} first, then {sideName(2)}.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {bothSidesReady && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: '#9CA3AF' }}>
+                <span style={{ minWidth: 44 }} />
+                <span style={{ width: 64, textAlign: 'center' }}>
+                  {isDoubles ? teamLabel(1) : p1Player?.name}
+                </span>
+                <span style={{ width: 10 }} />
+                <span style={{ width: 64, textAlign: 'center' }}>
+                  {isDoubles ? teamLabel(2) : p2Player?.name}
+                </span>
+              </div>
+            )}
             {sets.map((s, i) => {
               if (matchType === 'proset' && i > 0) return null;
               return (
@@ -270,6 +314,11 @@ export default function SubmitScore({ players, settings, ladderId, onSubmit }) {
               );
             })}
           </div>
+          {mismatchHint && (
+            <div style={{ marginTop: 8, fontSize: 12, color: '#8A6100', background: '#FDF6E3', border: '1px solid #F0E2B6', borderRadius: 8, padding: '8px 10px' }}>
+              {mismatchHint}
+            </div>
+          )}
         </div>
 
         {/* Date and court */}

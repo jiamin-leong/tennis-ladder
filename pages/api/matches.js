@@ -223,7 +223,7 @@ export default async function handler(req, res) {
     try {
       const { rows } = await client.query(
         `SELECT winner_id, winner_partner_id, loser_id, loser_partner_id,
-                winner_pts, loser_pts, score AS old_score, ladder_id
+                winner_pts, loser_pts, score AS old_score, sets_played, ladder_id
          FROM matches WHERE id = $1`,
         [matchId]
       );
@@ -253,7 +253,8 @@ export default async function handler(req, res) {
 
       const newWinnerIds = [newWinnerId, newWinnerPartnerId].filter(Boolean);
       const newLoserIds  = [newLoserId,  newLoserPartnerId].filter(Boolean);
-      const newWinnerPts = isNowDraw ? draw_pts : win_pts;
+      const effectiveWinPts = old.sets_played === 1 ? 2 : win_pts;
+      const newWinnerPts = isNowDraw ? draw_pts : effectiveWinPts;
       const newLoserPts  = isNowDraw ? draw_pts : loss_pts;
 
       await client.query('BEGIN');
@@ -293,7 +294,7 @@ export default async function handler(req, res) {
         for (const pid of newWinnerIds) {
           await client.query(
             `UPDATE player_ladders SET points = points + $1, wins = wins + 1 WHERE ladder_id = $2 AND player_id = $3`,
-            [win_pts, old.ladder_id, pid]
+            [effectiveWinPts, old.ladder_id, pid]
           );
         }
         for (const pid of newLoserIds) {
