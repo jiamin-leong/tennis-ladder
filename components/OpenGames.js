@@ -35,6 +35,7 @@ function defaultTitle(player, maxPlayers) {
 
 export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
   const [view, setView] = useState('list');
+  const [listTab, setListTab] = useState('upcoming');
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dayFilter, setDayFilter] = useState(null);
@@ -294,6 +295,13 @@ export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
 
   // ── List view ────────────────────────────────────────────────────────────────
   if (view === 'list') {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const isPast = g => (typeof g.date === 'string' ? g.date.slice(0, 10) : new Date(g.date).toISOString().slice(0, 10)) < todayStr;
+    const upcomingGames = games.filter(g => !isPast(g));
+    const pastGames = games.filter(isPast).reverse();
+    const shownGames = listTab === 'past' ? pastGames : upcomingGames;
+
     return (
       <div>
         {/* Header */}
@@ -305,6 +313,24 @@ export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
           >
             + Create Match
           </button>
+        </div>
+
+        {/* Upcoming / Past */}
+        <div style={{ display: 'flex', gap: 4, background: '#F3F4F6', borderRadius: 10, padding: 4, marginBottom: 12 }}>
+          {[{ key: 'upcoming', label: 'Upcoming', count: upcomingGames.length }, { key: 'past', label: 'Past', count: pastGames.length }].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setListTab(t.key)}
+              style={{
+                flex: 1, padding: '7px 0', fontSize: 13, fontWeight: 600, borderRadius: 8, cursor: 'pointer', border: 'none',
+                background: listTab === t.key ? 'white' : 'transparent',
+                color: listTab === t.key ? '#111827' : '#6B7280',
+                boxShadow: listTab === t.key ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              {t.label} <span style={{ color: '#9CA3AF', fontWeight: 500 }}>{t.count}</span>
+            </button>
+          ))}
         </div>
 
         {/* Day filter */}
@@ -329,14 +355,18 @@ export default function OpenGames({ currentPlayer, ladderId, initialGameId }) {
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '3rem 0', color: '#9CA3AF' }}>Loading…</div>
-        ) : games.length === 0 ? (
+        ) : shownGames.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '3rem 0' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>🎾</div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 4 }}>No games yet</div>
-            <div style={{ fontSize: 13, color: '#9CA3AF' }}>Be the first to create one.</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+              {listTab === 'past' ? 'No past matches' : 'No games yet'}
+            </div>
+            <div style={{ fontSize: 13, color: '#9CA3AF' }}>
+              {listTab === 'past' ? 'Matches move here the day after they’re played.' : 'Be the first to create one.'}
+            </div>
           </div>
         ) : (
-          games.map(game => {
+          shownGames.map(game => {
             const spotsLeft = game.max_players - parseInt(game.approved_count || 0);
             const isFull = spotsLeft <= 0;
             const isCreator = parseInt(game.creator_id) === parseInt(currentPlayer?.id);
